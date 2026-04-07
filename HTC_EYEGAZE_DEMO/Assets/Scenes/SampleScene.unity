@@ -193,17 +193,17 @@ MonoBehaviour:
   m_GameObject: {fileID: 235498135}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1a6d5318e8fed7a4b8b812e92a89a88b, type: 3}
+  m_Script: {fileID: 11500000, guid: f7d4497e05c2c214db5a7085c2e75434, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RealEyeGazeHighlighter
+  m_EditorClassIdentifier: Assembly-CSharp::EyeGaze.Runtime.Core.EyeGazeSystem
   maxDistance: 10
   hitMask:
     serializedVersion: 2
     m_Bits: 64
-  highlightColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   referenceCamera: {fileID: 1665427846}
-  debugVisualizer: {fileID: 790655325}
-  dwellTracker: {fileID: 813378020}
+  moduleBehaviours:
+  - {fileID: 2052614472}
+  - {fileID: 1346290978}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -331,6 +331,59 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &529578014
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 529578016}
+  - component: {fileID: 529578015}
+  m_Layer: 0
+  m_Name: EyeGazeDwellTracker
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &529578015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 529578014}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51c7d62694178194bb5a82ba51dddd49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EyeGaze.Runtime.Modules.EyeGazeDwellTracker
+  logTargetChanges: 1
+  logPeriodicSummary: 0
+  summaryLogEveryNFrames: 300
+  exportOnApplicationQuit: 1
+  useCustomOutputDirectory: 1
+  customOutputDirectory: C:\Users\MADAO\Desktop\Practicas\results\DwellTracker
+  outputFileName: eye_gaze_dwell_report
+  generateTimestampedFileName: 1
+  includeInstanceId: 1
+--- !u!4 &529578016
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 529578014}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.03268, y: 0, z: 0.29185}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &632390613
 GameObject:
   m_ObjectHideFlags: 0
@@ -749,7 +802,7 @@ MonoBehaviour:
   m_StartingInteractionStrengthFilters: []
   m_AutoFindParentInteractableInHierarchy: 0
   m_ParentInteractableObject: {fileID: 0}
---- !u!1 &790655324
+--- !u!1 &1015190099
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -757,8 +810,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 790655326}
-  - component: {fileID: 790655325}
+  - component: {fileID: 1015190101}
+  - component: {fileID: 1015190100}
   m_Layer: 0
   m_Name: EyeGazeDebugVisualizer
   m_TagString: Untagged
@@ -766,90 +819,37 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &790655325
+--- !u!114 &1015190100
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 790655324}
+  m_GameObject: {fileID: 1015190099}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a4d7f43a88a5c4c8d4016c5599fab5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EyeGazeDebugVisualizer
+  m_EditorClassIdentifier: Assembly-CSharp::EyeGaze.Runtime.Modules.EyeGazeDebugVisualizer
   enableDebugRay: 1
   debugLineRenderer: {fileID: 1992640697}
   debugRayColor: {r: 1, g: 0, b: 0, a: 1}
   debugCameraLineRenderer: {fileID: 0}
   debugCameraRayColor: {r: 0, g: 0, b: 1, a: 1}
-  debugOffsetLineRenderer: {fileID: 651553425}
+  debugOffsetLineRenderer: {fileID: 0}
   debugOffsetLineColor: {r: 1, g: 1, b: 1, a: 1}
-  enableDebugLogs: 1
+  enableDebugLogs: 0
   debugLogEveryNFrames: 60
---- !u!4 &790655326
+--- !u!4 &1015190101
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 790655324}
+  m_GameObject: {fileID: 1015190099}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0, y: 0, z: -0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &813378019
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 813378021}
-  - component: {fileID: 813378020}
-  m_Layer: 0
-  m_Name: EyeGazeDwellTracker
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &813378020
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 813378019}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 51c7d62694178194bb5a82ba51dddd49, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EyeGazeDwellTracker
-  logTargetChanges: 1
-  logPeriodicSummary: 1
-  summaryLogEveryNFrames: 300
-  exportOnApplicationQuit: 1
-  useCustomOutputDirectory: 1
-  customOutputDirectory: C:\Users\MADAO\Desktop\Practicas\Exports
-  outputFileName: eye_gaze_dwell_report
-  generateTimestampedFileName: 1
-  includeInstanceId: 1
---- !u!4 &813378021
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 813378019}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0, y: 0, z: -0}
+  m_LocalPosition: {x: -0.03268, y: 0, z: 0.29185}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -930,6 +930,51 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -3.4202216, y: -1.6005607, z: 8.581331}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1346290977
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1346290979}
+  - component: {fileID: 1346290978}
+  m_Layer: 0
+  m_Name: EyeGazeHighlighter
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1346290978
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1346290977}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a6d5318e8fed7a4b8b812e92a89a88b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EyeGaze.Runtime.Modules.EyeGazeHighlighter
+  highlightColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+--- !u!4 &1346290979
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1346290977}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.03268, y: 0, z: 0.29185}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1780,6 +1825,60 @@ Transform:
   m_Children: []
   m_Father: {fileID: 5394539}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2052614471
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2052614473}
+  - component: {fileID: 2052614472}
+  m_Layer: 0
+  m_Name: EyeGazeBasicMetrics
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2052614472
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2052614471}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49c0e5e1c6880e94e9a4931f4a625edd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EyeGaze.Runtime.Modules.EyeGazeBasicMetrics
+  fixationThreshold: 0.25
+  logFixationStarts: 0
+  logPeriodicSummary: 0
+  summaryLogEveryNFrames: 300
+  exportOnApplicationQuit: 1
+  useCustomOutputDirectory: 1
+  customOutputDirectory: C:\Users\MADAO\Desktop\Practicas\results\BasicMetrics
+  outputFileName: eye_gaze_basic_metrics
+  generateTimestampedFileName: 1
+  includeInstanceId: 1
+--- !u!4 &2052614473
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2052614471}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.03268, y: 0, z: 0.29185}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -1790,5 +1889,7 @@ SceneRoots:
   - {fileID: 235498137}
   - {fileID: 5394539}
   - {fileID: 1095355548}
-  - {fileID: 790655326}
-  - {fileID: 813378021}
+  - {fileID: 2052614473}
+  - {fileID: 1015190101}
+  - {fileID: 529578016}
+  - {fileID: 1346290979}
