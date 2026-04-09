@@ -1,0 +1,201 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{cite}
+\usepackage{float} 
+
+\geometry{a4paper, margin=2.5cm}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=blue,
+    citecolor=black,
+}
+
+\title{State of the Art: Eye Tracking, Area of Interest (AOI) Analytics, and Biometrics in Immersive Virtual Reality}
+\author{
+    \textbf{Alejandro Sanz Huerta} \\
+    Universidad de Cádiz
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+    Human visual behavior analysis in Virtual Reality (VR) is undergoing a paradigm shift. With the standardization of Extended Reality (XR) development frameworks and the integration of native eye-tracking sensors in standalone headsets, research is moving away from proprietary solutions towards open and modular architectures \cite{clay2019}. This document reviews the state of the art divided into four fundamental layers: hardware platform, methodological framework, current tool landscape, and the identification of architectural gaps.
+\end{abstract}
+
+\section{The Platform Layer: The Dual Nature of OpenXR and Physiological Tracking}
+
+The foundation of modern XR research relies on the Unity engine and the OpenXR standard. OpenXR democratizes device support by abstracting hardware specifics behind a unified API, providing standard gaze-based interaction through the \texttt{XR\_EXT\_eye\_gaze\_interaction} extension \cite{khronos_openxr}.
+
+However, the literature highlights a critical dichotomy in the platform layer regarding the distinction between Eye Gaze and Full Eye Tracking:
+
+\begin{itemize}
+    \item \textbf{Interaction-Oriented Gaze (The Standard):} The default OpenXR implementation applies low-pass filters and smoothing to the gaze vector to prevent UI jitter. This masks the microsaccadic movements necessary for physiological research and omits biometric data \cite{khronos_openxr}.
+    \item \textbf{Research-Grade Gaze and Biometrics:} To bypass this limitation, manufacturers provide advanced SDKs. HTC's \textit{VIVE OpenXR SDK} exposes an \textit{Eye Tracker} interface that outputs raw data per eye, pupil diameter (pupillometry), and eyelid openness \cite{htc_sdk}. Similar paradigms are observed in the dual-tier data pipelines of the Varjo ecosystem \cite{varjo_sdk}.
+\end{itemize}
+
+\section{The Methodological Layer: 3D Fixations, AOI Mapping, and Cognitive Load}
+
+The central challenge is translating raw spatial data into meaningful behavioral metrics, which is divided into spatial mapping and physiological correlation.
+
+\subsection{Spatial Gaze: Fixations and AOIs}
+Unlike eye tracking on 2D screens, VR introduces head-eye coordination, dynamic depth planes, and occlusion. This makes traditional 2D fixation algorithms (such as I-VT for velocity or I-DT for dispersion \cite{salvucci2000}) complex to implement as they require translating 3D coordinates to degrees of visual angle in real time. To solve this, current methodologies rely on Object-Linked Raycasting \cite{duchowski2017}. By treating 3D colliders as Areas of Interest (AOIs), the system registers a ``Dwell Fixation'' if the intersection is maintained continuously for a predefined threshold time (e.g., 150 ms).
+
+\subsection{Physiological Correlates: Pupillometry and Blink Dynamics}
+The literature underscores the importance of mapping ocular states directly to specific visual stimuli \cite{eckstein2017}. Pupil dilation is a validated indicator of cognitive load and arousal. The methodological gap lies in synchronizing data streams: the research standard requires knowing the exact pupil diameter \textit{at the precise moment} the user fixes their gaze on a specific AOI, rather than as a mere temporal average.
+
+\section{Tool Landscape: Commercial Platforms vs. Open Research}
+
+To understand the need for a native C\# architecture, existing solutions must be analyzed, paying special attention to their limitations regarding real-time metric calculation.
+
+\subsection{Commercial Platforms (The ``Gold Standard'')}
+These platforms dominate enterprise and clinical research but present significant methodological and economic barriers for open and agile science.
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabularx}{\textwidth}{@{} >{\hsize=.2\hsize}X >{\hsize=.4\hsize}X >{\hsize=.4\hsize}X @{}}
+        \toprule
+        \textbf{Platform}                                   & \textbf{Core Focus}                                                                                                                                & \textbf{Limitations vs. Proposed System}                                                                                                                                                                     \\
+        \midrule
+        \textbf{iMotions VR} \cite{imotions}                & Massive biometric aggregation platform that links Unity AOIs to automated fixation and pupillary tracking algorithms.                              & \textbf{Cost and Dependency:} Strictly tied to paid licenses. Analysis occurs outside Unity in a desktop app; it is not a lightweight, in-engine C\# module.                                                 \\
+        \addlinespace
+        \textbf{Cognitive3D} \cite{cognitive3d}             & Cloud-based spatial analytics. Exceptional at handling ``Dynamic AOIs'' and generating 3D heatmaps.                                                & \textbf{Cloud Dependency:} Metric processing relies on external servers. Local (\textit{offline}) research is highly restricted.                                                                             \\
+        \addlinespace
+        \textbf{Tobii XR SDK \& Ocumen} \cite{tobii_ocumen} & Tobii's ecosystem. The \textit{XR SDK} is free to access, but \textit{Ocumen} is the premium suite with robust pupillometry pipelines and filters. & \textbf{Restricted Data \& Lock-in:} The free SDK hides access to unfiltered biometric data. Real research requires the Ocumen license (approx. €1495/year per headset) and restricts you to Tobii hardware. \\
+        \bottomrule
+    \end{tabularx}
+    \caption{Comparison of commercial platforms and biometric research ecosystems.}
+\end{table}
+
+\subsection{Open-Source Research Frameworks}
+These projects, built by academia, usually solve specific data acquisition problems but lack integrated analytical engines.
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabularx}{\textwidth}{@{} >{\hsize=.2\hsize}X >{\hsize=.4\hsize}X >{\hsize=.4\hsize}X @{}}
+        \toprule
+        \textbf{Project}                        & \textbf{Core Focus}                                                                    & \textbf{Limitations vs. Proposed System}                                                                                                                            \\
+        \midrule
+        \textbf{TAUXR} \cite{tauxr}             & Unity template for running experiments with rigorous, high-framerate data logging.     & \textbf{No Real-Time Metrics:} Only logs raw vectors to CSV, requiring post-hoc scripts (Python/R) to calculate Time to First Fixation (TFF) or fixation durations. \\
+        \addlinespace
+        \textbf{ORCL VR} \cite{orcl}            & Demonstrates how to extract raw data from OpenXR/Tobii in Unity for XML serialization. & \textbf{Lack of Modularity:} Acts as an extraction tool, lacking decoupled tracking and AOI calculation submodules.                                                 \\
+        \addlinespace
+        \textbf{EDIA} \cite{edia}               & Focuses on standardizing VR scene setup and semantic label assignment.                 & \textbf{Incomplete Analytics:} Lacks an explicit real-time accumulation architecture integrated into the game loop.                                                 \\
+        \addlinespace
+        \textbf{GazeMetrics} \cite{gazemetrics} & Validates hardware precision (offset) and accuracy (jitter) of the headset.            & \textbf{No Semantic Analysis:} Only evaluates sensors; does not analyze contexts, AOI logic, or gaze metrics.                                                       \\
+        \addlinespace
+        \textbf{Pupil Labs} \cite{pupillabs}    & Modular blocks (\textit{hmd-eyes}) for calibration and Unity integration.              & \textbf{Limited Automation:} Highly focused on their add-on hardware, delegating complex semantic reporting to the researcher.                                      \\
+        \bottomrule
+    \end{tabularx}
+    \caption{Comparison of open-source research frameworks.}
+\end{table}
+
+\section{Identification of the Architectural Gap}
+
+The analysis of Table 1 and Table 2 reveals a clear void in the ecosystem. Commercial options restrict raw data behind paywalls or rely on the cloud, while open-source software delegates the heavy computational load of metric calculation to \textit{offline} post-processing.
+
+There is a methodological need for a \textbf{native Unity architecture (C\#)} that operates autonomously. A system that processes raw spatial and physiological data through dedicated submodules, calculates AOI metrics (TFF, Total Fixation Duration) in real-time, and simultaneously correlates biometric responses, exporting localized tabular reports without relying on third-party pipelines or incurring restrictive licenses.
+
+\section{Proposed Architectural Innovations}
+
+To elevate the proposed system and offer unprecedented methodological value to the scientific community, this project aims to implement novel features in open repositories:
+
+\begin{enumerate}
+    \item \textbf{Biometrics Synchronized with AOIs (Contextual Pupillometry):} Instead of blind continuous logging, the system includes a biometric module that computes average pupil dilation and blink rate \textit{exclusively} during the active fixation window on an object, directly linking cognitive load with visual geometry.
+    \item \textbf{Volumetric Probabilistic Gaze (Cone-Casting):} Replacing linear raycasting with a conical volume to absorb foveal dispersion error and hardware jitter. This enables calculating a ``Confidence Index'' that natively handles multi-object occlusion.
+    \item \textbf{Cumulative Semantic Hierarchies:} Support for ``Parent-Child'' collider relationships (e.g., looking at a ``Wheel'' simultaneously accumulates attention time in the ``Vehicle'' semantic category), generating context-rich semantic exports.
+    \item \textbf{Dynamic Thresholds:} Self-adjusting dwell thresholds based on the target's virtual distance and the user's head velocity, compensating for the Vestibulo-Ocular Reflex (VOR) and reducing false negatives on distant elements.
+\end{enumerate}
+
+\newpage
+\begin{thebibliography}{99}
+
+    \bibitem{clay2019}
+    Clay, V., König, P., \& König, S. U. (2019).
+    \textit{Eye tracking in virtual reality}.
+    Journal of Eye Movement Research, 12(1). \url{https://doi.org/10.16910/jemr.12.1.3}
+
+    \bibitem{khronos_openxr}
+    Khronos Group. (2021).
+    \textit{OpenXR Specification: XR\_EXT\_eye\_gaze\_interaction}.
+    The Khronos Registry. \url{https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html}
+
+    \bibitem{htc_sdk}
+    HTC Corporation. (2023).
+    \textit{VIVE OpenXR XR HTC Eye Tracker SDK Documentation}.
+    HTC Developer Portal. \url{https://hub.vive.com/apidoc/api/VIVE.OpenXR.XR_HTC_eye_tracker.html}
+
+    \bibitem{varjo_sdk}
+    Varjo Technologies. (2023).
+    \textit{Varjo XR Developer Documentation: Eye Tracking}.
+    Varjo Developer Portal. \url{https://developer.varjo.com/docs/openxr/eye-tracking}
+
+    \bibitem{salvucci2000}
+    Salvucci, D. D., \& Goldberg, J. H. (2000).
+    \textit{Identifying fixations and saccades in eye-tracking protocols}.
+    Proceedings of the 2000 symposium on Eye tracking research \& applications (pp. 71-78).
+
+    \bibitem{duchowski2017}
+    Duchowski, A. T. (2017).
+    \textit{Eye Tracking Methodology: Theory and Practice} (3rd ed.).
+    Springer International Publishing.
+
+    \bibitem{eckstein2017}
+    Eckstein, M. K., Guerra-Carrillo, B., Miller Singley, A. T., \& Bunge, S. A. (2017).
+    \textit{Beyond eye gaze: What else can eyetracking reveal about cognition and cognitive development?}.
+    Developmental Cognitive Neuroscience, 25, 69-91.
+
+    \bibitem{imotions}
+    iMotions A/S. (2024).
+    \textit{iMotions VR Integration \& Biometric Research Platform}.
+    \url{https://imotions.com/products/imotions-lab/modules/eye-tracking-virtual-reality//}
+
+    \bibitem{cognitive3d}
+    Cognitive3D. (2024).
+    \textit{Spatial Analytics Platform Documentation for Unity}.
+    \url{https://cognitive3d.com/product/unity-analytics/}
+
+    \bibitem{tobii_ocumen}
+    Tobii AB. (2024).
+    \textit{Tobii Ocumen VR Developer Guide \& XR SDK Licensing}.
+    Tobii Pro Documentation. \url{https://developer.tobii.com/tobii-pro/}
+    \bibitem{tauxr}
+    Tel Aviv University XR Lab. (2023).
+    \textit{TAUXR Unity XR Toolkit: Research-oriented Unity toolkit}.
+    GitHub Repository. \url{https://github.com/TAU-XR/TAUXR-Research-Template}
+
+    \bibitem{orcl}
+    Omni-Reality and Cognition Lab (ORCL). (2022).
+    \textit{ORCL\_VR\_EyeTracking}.
+    University of Virginia. GitHub Repository. \url{https://github.com/XiangGuo1992/ORCL_VR_EyeTracking}
+
+    \bibitem{edia}
+    EDIA Framework. (2023).
+    \textit{Eye-tracking Data Integration App (EDIA) for VR scene setup}.
+    Research Toolkit Documentation.
+
+    \bibitem{gazemetrics}
+    Adhanom, I. B., Lee, S. C., Folmer, E., \& MacNeilage, P. (2020).
+    \textit{GazeMetrics: An Open-Source Tool for Measuring the Data Quality of HMD-based Eye Trackers}.
+    ACM Symposium on Eye Tracking Research and Applications (ETRA). \url{https://github.com/isayasMatter/GazeMetrics}
+
+    \bibitem{pupillabs}
+    Pupil Labs. (2024).
+    \textit{hmd-eyes: VR/AR Eye Tracking integration for Unity}.
+    GitHub Repository. \url{https://github.com/pupil-labs/hmd-eyes}
+
+\end{thebibliography}
+
+\end{document}
