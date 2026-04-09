@@ -15,6 +15,16 @@ namespace EyeGaze.Runtime.Core
         // Layer mask to specify which objects can be detected by the gaze raycast
         [SerializeField] private LayerMask hitMask = ~0;
 
+        [Header("Fallback Visual Fixation")]
+        // Distance used to place a visual fixation point when gaze does not hit anything
+        [SerializeField] private float fallbackFixationDistance = 3f;
+
+        // Clamp the visual fixation distance so very far hits do not produce exaggerated depth
+        [SerializeField] private bool clampVisualFixationDistance = false;
+
+        // Maximum allowed distance for the visual fixation point when clamping is enabled
+        [SerializeField] private float maxVisualFixationDistance = 5f;
+
         [Header("References")]
         // Camera used as reference (usually HMD / Main Camera)
         [SerializeField] private Camera referenceCamera;
@@ -39,6 +49,9 @@ namespace EyeGaze.Runtime.Core
         public Camera ReferenceCamera => referenceCamera;
         public float MaxDistance => maxDistance;
         public LayerMask HitMask => hitMask;
+        public float FallbackFixationDistance => fallbackFixationDistance;
+        public bool ClampVisualFixationDistance => clampVisualFixationDistance;
+        public float MaxVisualFixationDistance => maxVisualFixationDistance;
 
         // Initialize InputActions and modules
         private void Awake()
@@ -184,11 +197,52 @@ namespace EyeGaze.Runtime.Core
             Ray ray = new Ray(lastValidPosition, direction);
 
             bool hasHit = Physics.Raycast(ray, out RaycastHit hitInfo, maxDistance, hitMask);
-            Vector3 rayEndPoint = hasHit
-                ? hitInfo.point
-                : lastValidPosition + direction * maxDistance;
+            bool hasPhysicsHit = hasHit;
 
             GameObject hitObject = hasHit ? hitInfo.collider.gameObject : null;
+
+            Vector3 hitPoint = hasHit
+                ? hitInfo.point
+                : lastValidPosition + direction * fallbackFixationDistance;
+
+            Vector3 hitNormal = hasHit
+                ? hitInfo.normal
+                : -direction;
+
+            Vector3 visualFixationPoint;
+            Vector3 visualFixationNormal;
+            bool isFallbackFixationPoint;
+
+            if (hasPhysicsHit)
+            {
+                visualFixationPoint = hitInfo.point;
+                visualFixationNormal = hitInfo.normal.sqrMagnitude > 0f
+                    ? hitInfo.normal.normalized
+                    : -direction;
+                isFallbackFixationPoint = false;
+
+                if (clampVisualFixationDistance)
+                {
+                    float hitDistance = Vector3.Distance(lastValidPosition, visualFixationPoint);
+
+                    if (hitDistance > maxVisualFixationDistance)
+                    {
+                        visualFixationPoint = lastValidPosition + direction * maxVisualFixationDistance;
+                        visualFixationNormal = -direction;
+                        isFallbackFixationPoint = true;
+                    }
+                }
+            }
+            else
+            {
+                visualFixationPoint = lastValidPosition + direction * fallbackFixationDistance;
+                visualFixationNormal = -direction;
+                isFallbackFixationPoint = true;
+            }
+
+            Vector3 rayEndPoint = hasPhysicsHit
+                ? visualFixationPoint
+                : lastValidPosition + direction * maxDistance;
 
             EyeGazeFrameData frameData = new EyeGazeFrameData(
                 isTracked: true,
@@ -199,8 +253,14 @@ namespace EyeGaze.Runtime.Core
                 hasHit: hasHit,
                 hitInfo: hitInfo,
                 hitObject: hitObject,
+                hitPoint: hitPoint,
+                hitNormal: hitNormal,
                 rayEndPoint: rayEndPoint,
-                deltaTime: Time.deltaTime
+                deltaTime: Time.deltaTime,
+                hasPhysicsHit: hasPhysicsHit,
+                visualFixationPoint: visualFixationPoint,
+                visualFixationNormal: visualFixationNormal,
+                isFallbackFixationPoint: isFallbackFixationPoint
             );
 
             foreach (IEyeGazeModule module in modules)

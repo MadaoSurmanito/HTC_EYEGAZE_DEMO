@@ -21,6 +21,7 @@ namespace EyeGaze.Editor
             SerializedProperty enableDebugLogsProp = serializedObject.FindProperty("enableDebugLogs");
             SerializedProperty debugLogEveryNFramesProp = serializedObject.FindProperty("debugLogEveryNFrames");
 
+            EditorGUILayout.LabelField("Debug Ray", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(enableDebugRayProp);
             if (enableDebugRayProp.boolValue)
             {
@@ -35,6 +36,7 @@ namespace EyeGaze.Editor
             }
 
             EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Debug Logs", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(enableDebugLogsProp);
             if (enableDebugLogsProp.boolValue)
             {

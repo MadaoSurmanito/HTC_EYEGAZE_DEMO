@@ -11,8 +11,12 @@ namespace EyeGaze.Editor
         {
             serializedObject.Update();
 
+            SerializedProperty highlightColorProp = serializedObject.FindProperty("highlightColor");
+            SerializedProperty highlightMaskProp = serializedObject.FindProperty("highlightMask");
+
             EditorGUILayout.LabelField("Highlighting", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("highlightColor"));
+            EditorGUILayout.PropertyField(highlightColorProp);
+            EditorGUILayout.PropertyField(highlightMaskProp);
 
             serializedObject.ApplyModifiedProperties();
         }

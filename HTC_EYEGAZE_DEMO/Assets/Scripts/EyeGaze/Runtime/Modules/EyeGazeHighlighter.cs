@@ -10,6 +10,10 @@ namespace EyeGaze.Runtime.Modules
         // Color to use for highlighting
         [SerializeField] private Color highlightColor = Color.yellow;
 
+        [Header("Layer Filter")]
+        // Only objects in these layers will be highlighted
+        [SerializeField] private LayerMask highlightMask = ~0;
+
         // Reference to the currently highlighted object's renderer
         private Renderer currentRenderer;
 
@@ -20,7 +24,11 @@ namespace EyeGaze.Runtime.Modules
         // Called every frame when valid gaze data is available.
         public override void ProcessFrame(EyeGazeFrameData frameData)
         {
-            SetHighlightedTarget(frameData.HitObject);
+            GameObject highlightableTarget = IsHighlightableLayer(frameData.HitObject)
+                ? frameData.HitObject
+                : null;
+
+            SetHighlightedTarget(highlightableTarget);
         }
 
         // Called when tracking is lost or invalid gaze data must be handled.
@@ -78,6 +86,17 @@ namespace EyeGaze.Runtime.Modules
             {
                 currentRenderer.material.color = originalColor;
             }
+        }
+
+        // Returns true only if the object belongs to the allowed highlight layers
+        private bool IsHighlightableLayer(GameObject target)
+        {
+            if (target == null)
+            {
+                return false;
+            }
+
+            return (highlightMask.value & (1 << target.layer)) != 0;
         }
     }
 }

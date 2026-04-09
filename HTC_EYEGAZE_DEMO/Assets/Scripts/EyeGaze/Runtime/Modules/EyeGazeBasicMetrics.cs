@@ -19,7 +19,11 @@ namespace EyeGaze.Runtime.Modules
     {
         [Header("Fixation")]
         // Minimum continuous gaze time required to consider that a fixation has started
-        [SerializeField] private float fixationThreshold = 0.15f;
+        [SerializeField] private float fixationThreshold = 0.25f;
+
+        [Header("Metrics Layer Filter")]
+        // Only objects in these layers will be used for AOI metrics
+        [SerializeField] private LayerMask metricsMask = ~0;
 
         [Header("Debug")]
         // Enables or disables logging when a fixation starts
@@ -53,10 +57,17 @@ namespace EyeGaze.Runtime.Modules
         // Stores all metrics per tracked object instance
         private readonly Dictionary<GameObject, BasicMetricsData> metricsByObject = new();
 
-        // Current object being looked at
-        private GameObject currentTarget;
+        // Current AOI target used for metrics
+        private GameObject currentMetricsTarget;
 
-        // Continuous time spent looking at the current object in the current gaze segment
+        // Current visual target used for fixation continuity.
+        // This may be null when fixation occurs in empty space.
+        private GameObject currentVisualTarget;
+
+        // Whether current visual fixation context is using a fallback point in empty space
+        private bool currentVisualIsFallback;
+
+        // Continuous time spent looking at the current segment
         private float currentTargetContinuousTime;
 
         // Whether the current gaze segment has already become a valid fixation
@@ -68,26 +79,19 @@ namespace EyeGaze.Runtime.Modules
         // Start time of the current session
         private float sessionStartTime;
 
-        // Data structure that stores the basic metrics for a single object
+        // Last visual fixation point and normal
+        private Vector3 currentVisualHitPoint;
+        private Vector3 currentVisualHitNormal = Vector3.forward;
+
         [Serializable]
         public class BasicMetricsData
         {
-            // FB: number of fixations that occurred before the first fixation on this object
             public int fixationsBefore = -1;
-
-            // TFF: time in seconds from session start until the first fixation on this object
             public float timeToFirstFixation = -1f;
-
-            // TFD: total accumulated fixation duration on this object
             public float totalFixationDuration = 0f;
-
-            // FC: number of fixations on this object
             public int fixationCount = 0;
-
-            // Sum of all individual fixation durations on this object
             public float totalDurationAcrossFixations = 0f;
 
-            // FD: average fixation duration on this object
             public float GetAverageFixationDuration()
             {
                 if (fixationCount <= 0)
@@ -99,68 +103,132 @@ namespace EyeGaze.Runtime.Modules
             }
         }
 
-        // Called once by the main system during initialization.
+        [Serializable]
+        public class FixationStartedEventData
+        {
+            // AOI target receiving the fixation, or null if fixation occurred in empty space
+            public GameObject target;
+
+            // World point used for scanpath rendering
+            public Vector3 worldPoint;
+
+            // Surface or fallback normal used for scanpath rendering
+            public Vector3 surfaceNormal;
+
+            // Absolute time when fixation started
+            public float fixationStartTime;
+
+            // Time elapsed since the session started
+            public float sessionElapsedTime;
+
+            // AOI fixation count for target, or 0 if no AOI target exists
+            public int objectFixationCount;
+
+            // Running global fixation index in the session
+            public int globalFixationIndex;
+
+            // Whether this fixation corresponds to a fallback point in empty space
+            public bool isFallbackFixation;
+        }
+
+        public event Action<FixationStartedEventData> FixationStarted;
+
         public override void Initialize(EyeGazeSystem systemReference)
         {
             base.Initialize(systemReference);
             InitializeState();
         }
 
-        // Called every frame when valid gaze data is available.
         public override void ProcessFrame(EyeGazeFrameData frameData)
         {
-            UpdateCurrentTarget(frameData.HitObject, frameData.DeltaTime);
+            GameObject metricsTarget = IsMetricsLayer(frameData.HitObject)
+                ? frameData.HitObject
+                : null;
+
+            UpdateCurrentTarget(
+                metricsTarget,
+                frameData.HitObject,
+                frameData.VisualFixationPoint,
+                frameData.VisualFixationNormal,
+                frameData.IsFallbackFixationPoint,
+                frameData.DeltaTime
+            );
         }
 
-        // Called when tracking is lost or invalid gaze data must be handled.
         public override void HandleTrackingLost(float deltaTime)
         {
-            UpdateCurrentTarget(null, deltaTime);
+            UpdateCurrentTarget(
+                null,
+                null,
+                Vector3.zero,
+                Vector3.forward,
+                false,
+                deltaTime
+            );
         }
 
-        // Called when the main system is disabled and the module should clear transient state.
         public override void ResetModuleState()
         {
             ClearCurrentTarget();
         }
 
-        // Initialize internal state
         public void InitializeState()
         {
             metricsByObject.Clear();
-            currentTarget = null;
+            currentMetricsTarget = null;
+            currentVisualTarget = null;
+            currentVisualIsFallback = false;
             currentTargetContinuousTime = 0f;
             currentSegmentHasBecomeFixation = false;
             totalFixationsStarted = 0;
             sessionStartTime = Time.time;
+            currentVisualHitPoint = Vector3.zero;
+            currentVisualHitNormal = Vector3.forward;
         }
 
-        // Update the currently gazed object and compute fixation-based metrics
-        public void UpdateCurrentTarget(GameObject newTarget, float deltaTime)
+        public void UpdateCurrentTarget(
+            GameObject newMetricsTarget,
+            GameObject newVisualTarget,
+            Vector3 visualPoint,
+            Vector3 visualNormal,
+            bool isFallbackFixation,
+            float deltaTime
+        )
         {
-            if (newTarget == currentTarget)
+            bool sameSegment = IsSameVisualSegment(newVisualTarget, isFallbackFixation);
+
+            if (sameSegment)
             {
-                ContinueCurrentSegment(deltaTime);
+                ContinueCurrentSegment(deltaTime, visualPoint, visualNormal);
             }
             else
             {
-                StartNewSegment(newTarget, deltaTime);
+                StartNewSegment(
+                    newMetricsTarget,
+                    newVisualTarget,
+                    visualPoint,
+                    visualNormal,
+                    isFallbackFixation,
+                    deltaTime
+                );
             }
 
             AccumulateFixationDuration(deltaTime);
             TryWritePeriodicSummary();
         }
 
-        // Clear the currently tracked object without erasing accumulated history
         public void ClearCurrentTarget()
         {
             FinalizeCurrentSegment();
-            currentTarget = null;
+            currentMetricsTarget = null;
+            currentVisualTarget = null;
+            currentVisualIsFallback = false;
             currentTargetContinuousTime = 0f;
             currentSegmentHasBecomeFixation = false;
+            currentVisualHitPoint = Vector3.zero;
+            currentVisualHitNormal = Vector3.forward;
         }
 
-        // Returns the metrics of a specific object, or null if it has never been tracked
         public BasicMetricsData GetMetrics(GameObject target)
         {
             if (target == null)
@@ -171,7 +239,6 @@ namespace EyeGaze.Runtime.Modules
             return metricsByObject.TryGetValue(target, out BasicMetricsData data) ? data : null;
         }
 
-        // Returns a read-only snapshot of all metrics
         public Dictionary<GameObject, BasicMetricsData> GetMetricsSnapshot()
         {
             Dictionary<GameObject, BasicMetricsData> snapshot = new();
@@ -193,7 +260,6 @@ namespace EyeGaze.Runtime.Modules
             return snapshot;
         }
 
-        // Log a summary of all current metrics
         public void LogSummary()
         {
             Debug.Log("[GAZE BASIC METRICS] ----- Summary Start -----");
@@ -221,7 +287,6 @@ namespace EyeGaze.Runtime.Modules
             Debug.Log("[GAZE BASIC METRICS] ----- Summary End -----");
         }
 
-        // Export all current metrics to a .txt file
         public void ExportToTxt()
         {
             try
@@ -236,24 +301,24 @@ namespace EyeGaze.Runtime.Modules
 
                 StringBuilder sb = new StringBuilder();
 
-                // Write metadata header
                 sb.AppendLine("Eye Gaze Basic Metrics Report");
                 sb.AppendLine($"ExportedAt={DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}");
                 sb.AppendLine($"FixationThresholdSeconds={fixationThreshold.ToString("F6", CultureInfo.InvariantCulture)}");
                 sb.AppendLine($"SessionElapsedSeconds={(Time.time - sessionStartTime).ToString("F6", CultureInfo.InvariantCulture)}");
-                sb.AppendLine($"CurrentTarget={(currentTarget != null ? currentTarget.name : "<none>")}");
+                sb.AppendLine($"CurrentMetricsTarget={(currentMetricsTarget != null ? currentMetricsTarget.name : "<none>")}");
+                sb.AppendLine($"CurrentVisualTarget={(currentVisualTarget != null ? currentVisualTarget.name : "<none>")}");
+                sb.AppendLine($"CurrentVisualIsFallback={(currentVisualIsFallback ? "1" : "0")}");
                 sb.AppendLine($"CurrentTargetContinuousTime={currentTargetContinuousTime.ToString("F6", CultureInfo.InvariantCulture)}");
                 sb.AppendLine($"TotalFixationsStarted={totalFixationsStarted}");
                 sb.AppendLine();
 
-                // Write table header
                 if (includeInstanceId)
                 {
-                    sb.AppendLine("ObjectName\tInstanceID\tFB\tTFF_Seconds\tFD_Seconds\tTFD_Seconds\tFC\tIsCurrentTarget");
+                    sb.AppendLine("ObjectName\tInstanceID\tFB\tTFF_Seconds\tFD_Seconds\tTFD_Seconds\tFC\tIsCurrentMetricsTarget");
                 }
                 else
                 {
-                    sb.AppendLine("ObjectName\tFB\tTFF_Seconds\tFD_Seconds\tTFD_Seconds\tFC\tIsCurrentTarget");
+                    sb.AppendLine("ObjectName\tFB\tTFF_Seconds\tFD_Seconds\tTFD_Seconds\tFC\tIsCurrentMetricsTarget");
                 }
 
                 foreach (KeyValuePair<GameObject, BasicMetricsData> pair in metricsByObject)
@@ -271,10 +336,8 @@ namespace EyeGaze.Runtime.Modules
             }
         }
 
-        // Export automatically when the application closes if enabled
         private void OnApplicationQuit()
         {
-            // Finalize the last active segment before exporting
             FinalizeCurrentSegment();
 
             if (exportOnApplicationQuit)
@@ -283,44 +346,40 @@ namespace EyeGaze.Runtime.Modules
             }
         }
 
-        // Continue accumulating the current gaze segment
-        private void ContinueCurrentSegment(float deltaTime)
+        private void ContinueCurrentSegment(float deltaTime, Vector3 visualPoint, Vector3 visualNormal)
         {
-            if (currentTarget == null)
-            {
-                return;
-            }
+            currentVisualHitPoint = visualPoint;
+            currentVisualHitNormal = visualNormal.sqrMagnitude > 0f ? visualNormal.normalized : Vector3.forward;
 
             currentTargetContinuousTime += deltaTime;
             TryStartFixationOnCurrentTarget();
         }
 
-        // Finalize the old segment and begin a new one
-        private void StartNewSegment(GameObject newTarget, float deltaTime)
+        private void StartNewSegment(
+            GameObject newMetricsTarget,
+            GameObject newVisualTarget,
+            Vector3 visualPoint,
+            Vector3 visualNormal,
+            bool isFallbackFixation,
+            float deltaTime
+        )
         {
             FinalizeCurrentSegment();
 
-            currentTarget = newTarget;
+            currentMetricsTarget = newMetricsTarget;
+            currentVisualTarget = newVisualTarget;
+            currentVisualIsFallback = isFallbackFixation;
             currentTargetContinuousTime = 0f;
             currentSegmentHasBecomeFixation = false;
-
-            if (currentTarget == null)
-            {
-                return;
-            }
+            currentVisualHitPoint = visualPoint;
+            currentVisualHitNormal = visualNormal.sqrMagnitude > 0f ? visualNormal.normalized : Vector3.forward;
 
             currentTargetContinuousTime += deltaTime;
             TryStartFixationOnCurrentTarget();
         }
 
-        // If the fixation threshold is crossed, register the fixation start
         private void TryStartFixationOnCurrentTarget()
         {
-            if (currentTarget == null)
-            {
-                return;
-            }
-
             if (currentSegmentHasBecomeFixation)
             {
                 return;
@@ -328,23 +387,26 @@ namespace EyeGaze.Runtime.Modules
 
             if (currentTargetContinuousTime >= fixationThreshold)
             {
-                StartFixation(currentTarget);
+                StartFixation(currentMetricsTarget);
             }
         }
 
-        // If the current segment is already a fixation, keep adding its duration
         private void AccumulateFixationDuration(float deltaTime)
         {
-            if (currentTarget == null || !currentSegmentHasBecomeFixation)
+            if (!currentSegmentHasBecomeFixation)
             {
                 return;
             }
 
-            BasicMetricsData data = GetOrCreateMetrics(currentTarget);
+            if (currentMetricsTarget == null)
+            {
+                return;
+            }
+
+            BasicMetricsData data = GetOrCreateMetrics(currentMetricsTarget);
             data.totalFixationDuration += deltaTime;
         }
 
-        // Write periodic summary logs if enabled
         private void TryWritePeriodicSummary()
         {
             if (logPeriodicSummary && summaryLogEveryNFrames > 0 && Time.frameCount % summaryLogEveryNFrames == 0)
@@ -353,60 +415,71 @@ namespace EyeGaze.Runtime.Modules
             }
         }
 
-        // Register the beginning of a valid fixation on the given object
-        private void StartFixation(GameObject target)
+        private void StartFixation(GameObject metricsTarget)
         {
-            if (target == null)
-            {
-                return;
-            }
-
-            BasicMetricsData data = GetOrCreateMetrics(target);
-
             totalFixationsStarted++;
             currentSegmentHasBecomeFixation = true;
 
-            // TFF and FB are only assigned the first time the object receives a fixation
-            if (data.fixationCount == 0)
+            BasicMetricsData data = null;
+
+            if (metricsTarget != null)
             {
-                data.timeToFirstFixation = Time.time - sessionStartTime;
-                data.fixationsBefore = totalFixationsStarted - 1;
+                data = GetOrCreateMetrics(metricsTarget);
+
+                if (data.fixationCount == 0)
+                {
+                    data.timeToFirstFixation = Time.time - sessionStartTime;
+                    data.fixationsBefore = totalFixationsStarted - 1;
+                }
+
+                data.fixationCount++;
             }
 
-            // FC increases every time a new fixation starts on the object
-            data.fixationCount++;
+            Debug.Log(
+                $"[GAZE BASIC METRICS] EVENT FixationStarted -> " +
+                $"Target='{(metricsTarget != null ? metricsTarget.name : "<none>")}' | " +
+                $"Point={currentVisualHitPoint} | " +
+                $"GlobalFixationIndex={totalFixationsStarted} | " +
+                $"Fallback={currentVisualIsFallback}"
+            );
+
+            FixationStarted?.Invoke(new FixationStartedEventData
+            {
+                target = metricsTarget,
+                worldPoint = currentVisualHitPoint,
+                surfaceNormal = currentVisualHitNormal,
+                fixationStartTime = Time.time,
+                sessionElapsedTime = Time.time - sessionStartTime,
+                objectFixationCount = data != null ? data.fixationCount : 0,
+                globalFixationIndex = totalFixationsStarted,
+                isFallbackFixation = currentVisualIsFallback
+            });
 
             if (logFixationStarts)
             {
                 Debug.Log(
-                    $"[GAZE BASIC METRICS] Fixation started on '{target.name}' | " +
-                    $"FB={data.fixationsBefore} | " +
-                    $"TFF={data.timeToFirstFixation.ToString("F3", CultureInfo.InvariantCulture)}s | " +
-                    $"FC={data.fixationCount}"
+                    $"[GAZE BASIC METRICS] Fixation started on '{(metricsTarget != null ? metricsTarget.name : "<none>")}' | " +
+                    $"FC={(data != null ? data.fixationCount : 0)}"
                 );
             }
         }
 
-        // Finalize the currently active gaze segment if it had become a fixation
         private void FinalizeCurrentSegment()
         {
-            if (currentTarget == null)
-            {
-                return;
-            }
-
             if (!currentSegmentHasBecomeFixation)
             {
                 return;
             }
 
-            BasicMetricsData data = GetOrCreateMetrics(currentTarget);
+            if (currentMetricsTarget == null)
+            {
+                return;
+            }
 
-            // Add the full fixation duration of this segment to the accumulated fixation durations
+            BasicMetricsData data = GetOrCreateMetrics(currentMetricsTarget);
             data.totalDurationAcrossFixations += currentTargetContinuousTime;
         }
 
-        // Export a single line for one tracked object
         private void WriteExportLine(StringBuilder sb, GameObject target, BasicMetricsData data)
         {
             if (target == null)
@@ -414,7 +487,7 @@ namespace EyeGaze.Runtime.Modules
                 return;
             }
 
-            bool isCurrentTarget = target == currentTarget;
+            bool isCurrentTarget = target == currentMetricsTarget;
 
             string tffText = data.timeToFirstFixation >= 0f
                 ? data.timeToFirstFixation.ToString("F6", CultureInfo.InvariantCulture)
@@ -450,7 +523,6 @@ namespace EyeGaze.Runtime.Modules
             }
         }
 
-        // Returns the existing metrics entry for an object or creates a new one
         private BasicMetricsData GetOrCreateMetrics(GameObject target)
         {
             if (!metricsByObject.ContainsKey(target))
@@ -459,6 +531,26 @@ namespace EyeGaze.Runtime.Modules
             }
 
             return metricsByObject[target];
+        }
+
+        private bool IsMetricsLayer(GameObject target)
+        {
+            if (target == null)
+            {
+                return false;
+            }
+
+            return (metricsMask.value & (1 << target.layer)) != 0;
+        }
+
+        private bool IsSameVisualSegment(GameObject newVisualTarget, bool newIsFallback)
+        {
+            if (currentVisualIsFallback || newIsFallback)
+            {
+                return currentVisualIsFallback == newIsFallback;
+            }
+
+            return currentVisualTarget == newVisualTarget;
         }
     }
 }
