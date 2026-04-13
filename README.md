@@ -42,6 +42,16 @@ The system is organized around the following components:
 - **EyeGazeFixationScanpathVisualizer**
   Optional module that creates visual fixation nodes and scanpath lines from fixation events.
 
+### AOI semantics
+
+The project now uses `EyeGazeAOI` as the semantic marker for Areas Of Interest.
+
+This separates:
+
+- physical raycast detection through colliders
+- semantic AOI definition for analysis
+- optional XR interaction through `XR Simple Interactable`
+
 ## Design Goals
 
 - Validate eye gaze tracking in immersive environments

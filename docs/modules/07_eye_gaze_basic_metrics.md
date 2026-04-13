@@ -16,19 +16,17 @@ The module computes:
 - **TFD**: Total Fixation Duration
 - **FC**: Fixation Count
 
-## Core Concepts
+## Current AOI Model
 
-### Metrics target
+This module now supports semantic AOIs through `EyeGazeAOI`.
 
-The module can filter AOIs through a metrics layer mask.
+The metrics module no longer needs to rely only on raw GameObjects. It can resolve and validate a semantic AOI component from the hit object.
 
-Only objects inside this mask are counted for object-based metrics.
+This allows the system to distinguish between:
 
-### Visual target
-
-Fixation continuity is evaluated over the current visual segment.
-
-This may differ from the metrics target, especially when visual fallback fixation is active.
+- raw physical hit object
+- semantic AOI used for analysis
+- optional XR interaction components
 
 ## Inspector Parameters
 
@@ -41,9 +39,12 @@ This may differ from the metrics target, especially when visual fallback fixatio
 - `emitRepeatedVisualFixations`: enables repeated visual fixation event emission while the same segment continues
 - `repeatedVisualFixationInterval`: interval used to emit additional visual fixation events after fixation start
 
-### Metrics Layer Filter
+### AOI Filtering
 
-- `metricsMask`: defines which layers are valid for AOI metrics
+- `requireMetricsLayerMask`: if enabled, the hit object must belong to the configured metrics layer mask
+- `metricsMask`: defines which layers are valid for metric candidates
+- `requireAOIComponent`: if enabled, a valid `EyeGazeAOI` component is required
+- `searchAOIInParents`: if enabled, the module can resolve `EyeGazeAOI` in the object hierarchy
 
 ## Difference Between Threshold and Emission
 
@@ -52,28 +53,59 @@ This may differ from the metrics target, especially when visual fallback fixatio
 
 This distinction is especially useful for scanpath visualization.
 
+## Raw Visual Target vs Semantic AOI
+
+The module distinguishes between:
+
+### Raw visual target
+
+The raw GameObject currently used for visual continuity.
+
+This target is useful to decide whether the current visual segment is still the same.
+
+### Semantic AOI
+
+The resolved `EyeGazeAOI` used for metric registration.
+
+This AOI is the real experimental target used for FB, TFF, FD, TFD and FC.
+
 ## Event Emission
 
-The module emits `FixationStarted` event data containing information such as:
+The module emits `FixationStarted` event data containing:
 
-- target object
+- raw target object
+- semantic AOI
 - world point
 - surface normal
 - fixation start time
 - session elapsed time
-- object fixation count
+- AOI fixation count
 - global fixation index
 - fallback fixation flag
 
+This keeps compatibility with visualization modules while also exposing semantic AOI information.
+
 ## Export
 
-The module supports TXT export of per-object metric values.
+The module supports TXT export of per-AOI metric values.
+
+The export can include:
+
+- AOI label
+- AOI identifier
+- instance ID
+- FB
+- TFF
+- FD
+- TFD
+- FC
+- whether the AOI is the current one
 
 ## Notes
 
-This module currently mixes two roles:
+At the current stage, this module still combines two roles:
 
-- computing metrics
+- computing fixation metrics
 - emitting visual fixation events for visualization modules
 
 This is practical and works well, but in a future refactor these concerns could be split into separate event types.

@@ -33,6 +33,15 @@ With repeated visual fixation emission enabled in `EyeGazeBasicMetrics`, the sca
 
 This solves the limitation where nodes only appeared when the gaze changed to another object or context.
 
+## Relation with AOIs
+
+The event consumed by this module can now include both:
+
+- the raw target object
+- the semantic `EyeGazeAOI`
+
+At the current stage, the module remains primarily visual and does not need to enforce AOI semantics by itself, although it can be extended in the future to do so.
+
 ## Inspector Parameters
 
 ### Dependencies

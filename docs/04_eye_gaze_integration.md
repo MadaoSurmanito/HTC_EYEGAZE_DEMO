@@ -4,7 +4,7 @@
 
 The eye gaze system is implemented as a modular architecture in Unity.
 
-A central module reads eye tracking input, performs gaze-based raycasting and distributes the resulting frame data to a set of optional processing modules. This design allows each feature to be enabled, disabled or extended independently.
+A central runtime module reads the eye tracking input, performs the gaze raycast and distributes the resulting frame data to a set of optional processing modules. This design allows each feature to be enabled, disabled or extended independently.
 
 The current architecture separates:
 
@@ -15,6 +15,7 @@ The current architecture separates:
 - dwell-based accumulation
 - fixation-based metrics
 - scanpath visualization
+- semantic AOI definition
 
 ## Main Architecture
 
@@ -35,11 +36,9 @@ Its responsibilities are:
 - notify modules when tracking is lost
 - reset module state when the system is disabled
 
-This module acts as the coordinator of the entire eye gaze pipeline.
-
 ### EyeGazeFrameData
 
-`EyeGazeFrameData` represents the per-frame data shared with all modules.
+`EyeGazeFrameData` is the shared per-frame container used by all runtime modules.
 
 It contains information such as:
 
@@ -59,28 +58,50 @@ It contains information such as:
 - visual fixation normal
 - whether the visual fixation point is a fallback point
 
-Using a shared frame structure avoids duplicating raycasting logic across modules and keeps the architecture consistent.
+### IEyeGazeModule and EyeGazeModuleBase
 
-### IEyeGazeModule
+`IEyeGazeModule` defines the common contract implemented by the optional runtime modules.
 
-`IEyeGazeModule` defines the common contract implemented by all optional helper modules.
+`EyeGazeModuleBase` is a convenience base class that stores the reference to the main system and reduces boilerplate in module implementations.
 
-Each module can:
+## AOI Model
 
-- initialize itself from the main system
-- process valid frame data
-- react when tracking is lost
-- reset its transient state
+The project now separates **semantic AOIs** from **XR interactables**.
 
-### EyeGazeModuleBase
+### Collider
 
-`EyeGazeModuleBase` is an optional abstract base class that reduces boilerplate in module implementations.
+A collider is required for the gaze raycast to hit an object physically.
 
-It stores the reference to the main system and provides default implementations for methods that do not always require custom logic.
+A collider only means that the object can be detected by the raycast. It does not automatically mean that the object should count as an experimental AOI.
+
+### EyeGazeAOI
+
+`EyeGazeAOI` is the semantic component that marks an object as an Area Of Interest for eye tracking analysis.
+
+This component defines whether an object should be considered valid for:
+
+- fixation-based metrics
+- dwell tracking
+- highlighting
+- scanpath visualization
+
+This makes AOI definition explicit and independent from interaction systems.
+
+### XR Simple Interactable
+
+`XR Simple Interactable` is now considered optional and independent from AOI semantics.
+
+It should only be used when an object must also participate in XR interaction workflows such as hover, focus or selection.
+
+An object can therefore be:
+
+- an AOI without being an XR interactable
+- an XR interactable without being an AOI
+- both at the same time
 
 ## Visual Fixation Model
 
-The system distinguishes between two related but different concepts:
+The system distinguishes between two related but different concepts.
 
 ### Physical hit
 
@@ -108,7 +129,7 @@ This distinction is important because an object can still be detected by the ray
 
 ### EyeGazeHighlighter
 
-Applies visual highlighting to the object currently hit by the gaze ray.
+Applies visual highlighting to the current gaze target.
 
 ### EyeGazeDebugVisualizer
 
@@ -116,7 +137,7 @@ Draws debug rays and alignment information for calibration and development.
 
 ### EyeGazeDwellTracker
 
-Tracks dwell time and gaze entries per object.
+Tracks dwell time and gaze entries over valid targets.
 
 ### EyeGazeBasicMetrics
 
@@ -141,7 +162,7 @@ This module listens to fixation events emitted by `EyeGazeBasicMetrics`.
 7. Active modules process the frame according to their responsibilities.
 8. If tracking is lost, modules are notified.
 
-## Benefits of the Architecture
+## Benefits of the Current Architecture
 
 The modular design improves the project in several ways:
 
@@ -150,4 +171,4 @@ The modular design improves the project in several ways:
 - easier debugging
 - easier experimentation
 - easier extension with future gaze-based modules
-- clearer distinction between data acquisition, metric computation and visualization
+- clearer distinction between physical detection, experimental semantics and XR interaction

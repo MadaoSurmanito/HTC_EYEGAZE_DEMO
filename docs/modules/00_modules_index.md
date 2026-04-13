@@ -7,6 +7,7 @@ This folder contains module-oriented technical documentation for the current Uni
 - `01_eye_gaze_system.md`
 - `02_eye_gaze_frame_data.md`
 - `03_eye_gaze_utils.md`
+- `09_eye_gaze_aoi.md`
 
 ## Optional Runtime Modules
 

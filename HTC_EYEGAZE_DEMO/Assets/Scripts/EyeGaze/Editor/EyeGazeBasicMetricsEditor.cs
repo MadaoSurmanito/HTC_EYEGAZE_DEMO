@@ -16,7 +16,10 @@ namespace EyeGaze.Editor
             SerializedProperty emitRepeatedVisualFixationsProp = serializedObject.FindProperty("emitRepeatedVisualFixations");
             SerializedProperty repeatedVisualFixationIntervalProp = serializedObject.FindProperty("repeatedVisualFixationInterval");
 
+            SerializedProperty requireMetricsLayerMaskProp = serializedObject.FindProperty("requireMetricsLayerMask");
             SerializedProperty metricsMaskProp = serializedObject.FindProperty("metricsMask");
+            SerializedProperty requireAOIComponentProp = serializedObject.FindProperty("requireAOIComponent");
+            SerializedProperty searchAOIInParentsProp = serializedObject.FindProperty("searchAOIInParents");
 
             SerializedProperty logFixationStartsProp = serializedObject.FindProperty("logFixationStarts");
             SerializedProperty logPeriodicSummaryProp = serializedObject.FindProperty("logPeriodicSummary");
@@ -43,8 +46,17 @@ namespace EyeGaze.Editor
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Metrics Layer Filter", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(metricsMaskProp);
+            EditorGUILayout.LabelField("AOI Filtering", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(requireMetricsLayerMaskProp);
+            if (requireMetricsLayerMaskProp.boolValue)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(metricsMaskProp);
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.PropertyField(requireAOIComponentProp);
+            EditorGUILayout.PropertyField(searchAOIInParentsProp);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Debug", EditorStyles.boldLabel);
@@ -60,7 +72,6 @@ namespace EyeGaze.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Export", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(exportOnApplicationQuitProp);
-
             EditorGUILayout.PropertyField(useCustomOutputDirectoryProp);
             if (useCustomOutputDirectoryProp.boolValue)
             {

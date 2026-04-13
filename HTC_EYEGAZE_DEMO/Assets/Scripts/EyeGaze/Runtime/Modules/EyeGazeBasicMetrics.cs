@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace EyeGaze.Runtime.Modules
 {
-    // This helper module computes basic eye tracking metrics for each object hit by the gaze raycast.
+    // This helper module computes basic eye tracking metrics for each valid AOI hit by the gaze raycast.
     // Implemented metrics:
     // - FB  (Fixations Before)
     // - TFF (Time to First Fixation)
@@ -22,16 +22,25 @@ namespace EyeGaze.Runtime.Modules
         [SerializeField] private float fixationThreshold = 0.25f;
 
         [Header("Visual Fixation Emission")]
-        // If enabled, a visual fixation event will be emitted periodically while the gaze remains stable,
-        // even if the user keeps looking at the same object or empty space.
+        // If enabled, the module keeps emitting visual fixation events
+        // while the user remains on the same visual segment.
         [SerializeField] private bool emitRepeatedVisualFixations = true;
 
-        // Time interval between emitted visual fixation events while staying in the same visual segment
+        // Time interval between repeated visual fixation event emissions
         [SerializeField] private float repeatedVisualFixationInterval = 0.25f;
 
-        [Header("Metrics Layer Filter")]
-        // Only objects in these layers will be used for AOI metrics
+        [Header("AOI Filtering")]
+        // If enabled, the object must belong to the metrics layer mask
+        [SerializeField] private bool requireMetricsLayerMask = true;
+
+        // Only objects in these layers will be considered for AOI metrics
         [SerializeField] private LayerMask metricsMask = ~0;
+
+        // If enabled, a valid EyeGazeAOI component is required for metrics
+        [SerializeField] private bool requireAOIComponent = true;
+
+        // If enabled, the AOI component can be searched in parents too
+        [SerializeField] private bool searchAOIInParents = true;
 
         [Header("Debug")]
         // Enables or disables logging when a fixation starts
@@ -62,13 +71,64 @@ namespace EyeGaze.Runtime.Modules
         // If true, object instance IDs will also be exported for easier technical identification
         [SerializeField] private bool includeInstanceId = true;
 
-        // Stores all metrics per tracked object instance
-        private readonly Dictionary<GameObject, BasicMetricsData> metricsByObject = new();
+        [Serializable]
+        public class BasicMetricsData
+        {
+            public int fixationsBefore = -1;
+            public float timeToFirstFixation = -1f;
+            public float totalFixationDuration = 0f;
+            public int fixationCount = 0;
+            public float totalDurationAcrossFixations = 0f;
+
+            public float GetAverageFixationDuration()
+            {
+                if (fixationCount <= 0)
+                {
+                    return 0f;
+                }
+
+                return totalDurationAcrossFixations / fixationCount;
+            }
+        }
+
+        [Serializable]
+        public class FixationStartedEventData
+        {
+            // Raw target object receiving the fixation, if any
+            public GameObject target;
+
+            // Semantic AOI receiving the fixation, if any
+            public EyeGazeAOI aoi;
+
+            // World point used for scanpath rendering
+            public Vector3 worldPoint;
+
+            // Surface or fallback normal used for scanpath rendering
+            public Vector3 surfaceNormal;
+
+            // Absolute time when fixation started
+            public float fixationStartTime;
+
+            // Time elapsed since the session started
+            public float sessionElapsedTime;
+
+            // AOI fixation count for target, or 0 if no valid AOI exists
+            public int objectFixationCount;
+
+            // Running global fixation index in the session
+            public int globalFixationIndex;
+
+            // Whether this fixation corresponds to a fallback point in empty space
+            public bool isFallbackFixation;
+        }
+
+        // Stores all metrics per AOI
+        private readonly Dictionary<EyeGazeAOI, BasicMetricsData> metricsByAOI = new();
 
         // Current AOI target used for metrics
-        private GameObject currentMetricsTarget;
+        private EyeGazeAOI currentMetricsAOI;
 
-        // Current visual target used for fixation continuity.
+        // Current raw visual target used for fixation continuity.
         // This may be null when fixation occurs in empty space.
         private GameObject currentVisualTarget;
 
@@ -94,54 +154,6 @@ namespace EyeGaze.Runtime.Modules
         private Vector3 currentVisualHitPoint;
         private Vector3 currentVisualHitNormal = Vector3.forward;
 
-        [Serializable]
-        public class BasicMetricsData
-        {
-            public int fixationsBefore = -1;
-            public float timeToFirstFixation = -1f;
-            public float totalFixationDuration = 0f;
-            public int fixationCount = 0;
-            public float totalDurationAcrossFixations = 0f;
-
-            public float GetAverageFixationDuration()
-            {
-                if (fixationCount <= 0)
-                {
-                    return 0f;
-                }
-
-                return totalDurationAcrossFixations / fixationCount;
-            }
-        }
-
-        [Serializable]
-        public class FixationStartedEventData
-        {
-            // AOI target receiving the fixation, or null if fixation occurred in empty space
-            public GameObject target;
-
-            // World point used for scanpath rendering
-            public Vector3 worldPoint;
-
-            // Surface or fallback normal used for scanpath rendering
-            public Vector3 surfaceNormal;
-
-            // Absolute time when fixation started
-            public float fixationStartTime;
-
-            // Time elapsed since the session started
-            public float sessionElapsedTime;
-
-            // AOI fixation count for target, or 0 if no AOI target exists
-            public int objectFixationCount;
-
-            // Running global fixation index in the session
-            public int globalFixationIndex;
-
-            // Whether this fixation corresponds to a fallback point in empty space
-            public bool isFallbackFixation;
-        }
-
         public event Action<FixationStartedEventData> FixationStarted;
 
         public override void Initialize(EyeGazeSystem systemReference)
@@ -152,12 +164,10 @@ namespace EyeGaze.Runtime.Modules
 
         public override void ProcessFrame(EyeGazeFrameData frameData)
         {
-            GameObject metricsTarget = IsMetricsLayer(frameData.HitObject)
-                ? frameData.HitObject
-                : null;
+            EyeGazeAOI metricsAOI = ResolveValidMetricsAOI(frameData.HitObject);
 
             UpdateCurrentTarget(
-                metricsTarget,
+                metricsAOI,
                 frameData.HitObject,
                 frameData.VisualFixationPoint,
                 frameData.VisualFixationNormal,
@@ -185,8 +195,8 @@ namespace EyeGaze.Runtime.Modules
 
         public void InitializeState()
         {
-            metricsByObject.Clear();
-            currentMetricsTarget = null;
+            metricsByAOI.Clear();
+            currentMetricsAOI = null;
             currentVisualTarget = null;
             currentVisualIsFallback = false;
             currentTargetContinuousTime = 0f;
@@ -199,7 +209,7 @@ namespace EyeGaze.Runtime.Modules
         }
 
         public void UpdateCurrentTarget(
-            GameObject newMetricsTarget,
+            EyeGazeAOI newMetricsAOI,
             GameObject newVisualTarget,
             Vector3 visualPoint,
             Vector3 visualNormal,
@@ -216,7 +226,7 @@ namespace EyeGaze.Runtime.Modules
             else
             {
                 StartNewSegment(
-                    newMetricsTarget,
+                    newMetricsAOI,
                     newVisualTarget,
                     visualPoint,
                     visualNormal,
@@ -233,7 +243,7 @@ namespace EyeGaze.Runtime.Modules
         public void ClearCurrentTarget()
         {
             FinalizeCurrentSegment();
-            currentMetricsTarget = null;
+            currentMetricsAOI = null;
             currentVisualTarget = null;
             currentVisualIsFallback = false;
             currentTargetContinuousTime = 0f;
@@ -243,21 +253,21 @@ namespace EyeGaze.Runtime.Modules
             currentVisualHitNormal = Vector3.forward;
         }
 
-        public BasicMetricsData GetMetrics(GameObject target)
+        public BasicMetricsData GetMetrics(EyeGazeAOI aoi)
         {
-            if (target == null)
+            if (aoi == null)
             {
                 return null;
             }
 
-            return metricsByObject.TryGetValue(target, out BasicMetricsData data) ? data : null;
+            return metricsByAOI.TryGetValue(aoi, out BasicMetricsData data) ? data : null;
         }
 
-        public Dictionary<GameObject, BasicMetricsData> GetMetricsSnapshot()
+        public Dictionary<EyeGazeAOI, BasicMetricsData> GetMetricsSnapshot()
         {
-            Dictionary<GameObject, BasicMetricsData> snapshot = new();
+            Dictionary<EyeGazeAOI, BasicMetricsData> snapshot = new();
 
-            foreach (KeyValuePair<GameObject, BasicMetricsData> pair in metricsByObject)
+            foreach (KeyValuePair<EyeGazeAOI, BasicMetricsData> pair in metricsByAOI)
             {
                 BasicMetricsData source = pair.Value;
 
@@ -278,18 +288,18 @@ namespace EyeGaze.Runtime.Modules
         {
             Debug.Log("[GAZE BASIC METRICS] ----- Summary Start -----");
 
-            foreach (KeyValuePair<GameObject, BasicMetricsData> pair in metricsByObject)
+            foreach (KeyValuePair<EyeGazeAOI, BasicMetricsData> pair in metricsByAOI)
             {
-                GameObject target = pair.Key;
+                EyeGazeAOI aoi = pair.Key;
                 BasicMetricsData data = pair.Value;
 
-                if (target == null)
+                if (aoi == null)
                 {
                     continue;
                 }
 
                 Debug.Log(
-                    $"[GAZE BASIC METRICS] Object='{target.name}' | " +
+                    $"[GAZE BASIC METRICS] AOI='{aoi.AoiLabel}' | " +
                     $"FB={data.fixationsBefore} | " +
                     $"TFF={data.timeToFirstFixation.ToString("F3", CultureInfo.InvariantCulture)}s | " +
                     $"FD={data.GetAverageFixationDuration().ToString("F3", CultureInfo.InvariantCulture)}s | " +
@@ -318,10 +328,13 @@ namespace EyeGaze.Runtime.Modules
                 sb.AppendLine("Eye Gaze Basic Metrics Report");
                 sb.AppendLine($"ExportedAt={DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}");
                 sb.AppendLine($"FixationThresholdSeconds={fixationThreshold.ToString("F6", CultureInfo.InvariantCulture)}");
-                sb.AppendLine($"RepeatedVisualFixationIntervalSeconds={repeatedVisualFixationInterval.ToString("F6", CultureInfo.InvariantCulture)}");
                 sb.AppendLine($"EmitRepeatedVisualFixations={(emitRepeatedVisualFixations ? "1" : "0")}");
+                sb.AppendLine($"RepeatedVisualFixationIntervalSeconds={repeatedVisualFixationInterval.ToString("F6", CultureInfo.InvariantCulture)}");
+                sb.AppendLine($"RequireMetricsLayerMask={(requireMetricsLayerMask ? "1" : "0")}");
+                sb.AppendLine($"RequireAOIComponent={(requireAOIComponent ? "1" : "0")}");
+                sb.AppendLine($"SearchAOIInParents={(searchAOIInParents ? "1" : "0")}");
                 sb.AppendLine($"SessionElapsedSeconds={(Time.time - sessionStartTime).ToString("F6", CultureInfo.InvariantCulture)}");
-                sb.AppendLine($"CurrentMetricsTarget={(currentMetricsTarget != null ? currentMetricsTarget.name : "<none>")}");
+                sb.AppendLine($"CurrentMetricsAOI={(currentMetricsAOI != null ? currentMetricsAOI.AoiLabel : "<none>")}");
                 sb.AppendLine($"CurrentVisualTarget={(currentVisualTarget != null ? currentVisualTarget.name : "<none>")}");
                 sb.AppendLine($"CurrentVisualIsFallback={(currentVisualIsFallback ? "1" : "0")}");
                 sb.AppendLine($"CurrentTargetContinuousTime={currentTargetContinuousTime.ToString("F6", CultureInfo.InvariantCulture)}");
@@ -330,14 +343,14 @@ namespace EyeGaze.Runtime.Modules
 
                 if (includeInstanceId)
                 {
-                    sb.AppendLine("ObjectName\tInstanceID\tFB\tTFF_Seconds\tFD_Seconds\tTFD_Seconds\tFC\tIsCurrentMetricsTarget");
+                    sb.AppendLine("AOI_Label\tAOI_Id\tInstanceID\tFB\tTFF_Seconds\tFD_Seconds\tTFD_Seconds\tFC\tIsCurrentMetricsAOI");
                 }
                 else
                 {
-                    sb.AppendLine("ObjectName\tFB\tTFF_Seconds\tFD_Seconds\tTFD_Seconds\tFC\tIsCurrentMetricsTarget");
+                    sb.AppendLine("AOI_Label\tAOI_Id\tFB\tTFF_Seconds\tFD_Seconds\tTFD_Seconds\tFC\tIsCurrentMetricsAOI");
                 }
 
-                foreach (KeyValuePair<GameObject, BasicMetricsData> pair in metricsByObject)
+                foreach (KeyValuePair<EyeGazeAOI, BasicMetricsData> pair in metricsByAOI)
                 {
                     WriteExportLine(sb, pair.Key, pair.Value);
                 }
@@ -365,14 +378,16 @@ namespace EyeGaze.Runtime.Modules
         private void ContinueCurrentSegment(float deltaTime, Vector3 visualPoint, Vector3 visualNormal)
         {
             currentVisualHitPoint = visualPoint;
-            currentVisualHitNormal = visualNormal.sqrMagnitude > 0f ? visualNormal.normalized : Vector3.forward;
+            currentVisualHitNormal = visualNormal.sqrMagnitude > 0f
+                ? visualNormal.normalized
+                : Vector3.forward;
 
             currentTargetContinuousTime += deltaTime;
             TryStartFixationOnCurrentTarget();
         }
 
         private void StartNewSegment(
-            GameObject newMetricsTarget,
+            EyeGazeAOI newMetricsAOI,
             GameObject newVisualTarget,
             Vector3 visualPoint,
             Vector3 visualNormal,
@@ -382,14 +397,16 @@ namespace EyeGaze.Runtime.Modules
         {
             FinalizeCurrentSegment();
 
-            currentMetricsTarget = newMetricsTarget;
+            currentMetricsAOI = newMetricsAOI;
             currentVisualTarget = newVisualTarget;
             currentVisualIsFallback = isFallbackFixation;
             currentTargetContinuousTime = 0f;
             currentSegmentHasBecomeFixation = false;
             timeSinceLastRepeatedVisualFixation = 0f;
             currentVisualHitPoint = visualPoint;
-            currentVisualHitNormal = visualNormal.sqrMagnitude > 0f ? visualNormal.normalized : Vector3.forward;
+            currentVisualHitNormal = visualNormal.sqrMagnitude > 0f
+                ? visualNormal.normalized
+                : Vector3.forward;
 
             currentTargetContinuousTime += deltaTime;
             TryStartFixationOnCurrentTarget();
@@ -404,7 +421,7 @@ namespace EyeGaze.Runtime.Modules
 
             if (currentTargetContinuousTime >= fixationThreshold)
             {
-                StartFixation(currentMetricsTarget);
+                StartFixation(currentMetricsAOI);
                 timeSinceLastRepeatedVisualFixation = 0f;
             }
         }
@@ -442,24 +459,17 @@ namespace EyeGaze.Runtime.Modules
 
         private void EmitVisualFixationEventOnly()
         {
-            Debug.Log(
-                $"[GAZE BASIC METRICS] EVENT RepeatedVisualFixation -> " +
-                $"Target='{(currentMetricsTarget != null ? currentMetricsTarget.name : "<none>")}' | " +
-                $"Point={currentVisualHitPoint} | " +
-                $"GlobalFixationIndex={totalFixationsStarted} | " +
-                $"Fallback={currentVisualIsFallback}"
-            );
-
             BasicMetricsData data = null;
 
-            if (currentMetricsTarget != null)
+            if (currentMetricsAOI != null)
             {
-                data = GetOrCreateMetrics(currentMetricsTarget);
+                data = GetOrCreateMetrics(currentMetricsAOI);
             }
 
             FixationStarted?.Invoke(new FixationStartedEventData
             {
-                target = currentMetricsTarget,
+                target = currentVisualTarget,
+                aoi = currentMetricsAOI,
                 worldPoint = currentVisualHitPoint,
                 surfaceNormal = currentVisualHitNormal,
                 fixationStartTime = Time.time,
@@ -477,12 +487,12 @@ namespace EyeGaze.Runtime.Modules
                 return;
             }
 
-            if (currentMetricsTarget == null)
+            if (currentMetricsAOI == null)
             {
                 return;
             }
 
-            BasicMetricsData data = GetOrCreateMetrics(currentMetricsTarget);
+            BasicMetricsData data = GetOrCreateMetrics(currentMetricsAOI);
             data.totalFixationDuration += deltaTime;
         }
 
@@ -494,16 +504,16 @@ namespace EyeGaze.Runtime.Modules
             }
         }
 
-        private void StartFixation(GameObject metricsTarget)
+        private void StartFixation(EyeGazeAOI metricsAOI)
         {
             totalFixationsStarted++;
             currentSegmentHasBecomeFixation = true;
 
             BasicMetricsData data = null;
 
-            if (metricsTarget != null)
+            if (metricsAOI != null)
             {
-                data = GetOrCreateMetrics(metricsTarget);
+                data = GetOrCreateMetrics(metricsAOI);
 
                 if (data.fixationCount == 0)
                 {
@@ -516,7 +526,7 @@ namespace EyeGaze.Runtime.Modules
 
             Debug.Log(
                 $"[GAZE BASIC METRICS] EVENT FixationStarted -> " +
-                $"Target='{(metricsTarget != null ? metricsTarget.name : "<none>")}' | " +
+                $"AOI='{(metricsAOI != null ? metricsAOI.AoiLabel : "<none>")}' | " +
                 $"Point={currentVisualHitPoint} | " +
                 $"GlobalFixationIndex={totalFixationsStarted} | " +
                 $"Fallback={currentVisualIsFallback}"
@@ -524,7 +534,8 @@ namespace EyeGaze.Runtime.Modules
 
             FixationStarted?.Invoke(new FixationStartedEventData
             {
-                target = metricsTarget,
+                target = currentVisualTarget,
+                aoi = metricsAOI,
                 worldPoint = currentVisualHitPoint,
                 surfaceNormal = currentVisualHitNormal,
                 fixationStartTime = Time.time,
@@ -537,7 +548,7 @@ namespace EyeGaze.Runtime.Modules
             if (logFixationStarts)
             {
                 Debug.Log(
-                    $"[GAZE BASIC METRICS] Fixation started on '{(metricsTarget != null ? metricsTarget.name : "<none>")}' | " +
+                    $"[GAZE BASIC METRICS] Fixation started on '{(metricsAOI != null ? metricsAOI.AoiLabel : "<none>")}' | " +
                     $"FC={(data != null ? data.fixationCount : 0)}"
                 );
             }
@@ -550,23 +561,23 @@ namespace EyeGaze.Runtime.Modules
                 return;
             }
 
-            if (currentMetricsTarget == null)
+            if (currentMetricsAOI == null)
             {
                 return;
             }
 
-            BasicMetricsData data = GetOrCreateMetrics(currentMetricsTarget);
+            BasicMetricsData data = GetOrCreateMetrics(currentMetricsAOI);
             data.totalDurationAcrossFixations += currentTargetContinuousTime;
         }
 
-        private void WriteExportLine(StringBuilder sb, GameObject target, BasicMetricsData data)
+        private void WriteExportLine(StringBuilder sb, EyeGazeAOI aoi, BasicMetricsData data)
         {
-            if (target == null)
+            if (aoi == null)
             {
                 return;
             }
 
-            bool isCurrentTarget = target == currentMetricsTarget;
+            bool isCurrentAOI = aoi == currentMetricsAOI;
 
             string tffText = data.timeToFirstFixation >= 0f
                 ? data.timeToFirstFixation.ToString("F6", CultureInfo.InvariantCulture)
@@ -578,38 +589,69 @@ namespace EyeGaze.Runtime.Modules
             if (includeInstanceId)
             {
                 sb.AppendLine(
-                    $"{target.name}\t" +
-                    $"{target.GetInstanceID()}\t" +
+                    $"{aoi.AoiLabel}\t" +
+                    $"{aoi.AoiId}\t" +
+                    $"{aoi.GetInstanceID()}\t" +
                     $"{data.fixationsBefore}\t" +
                     $"{tffText}\t" +
                     $"{fdText}\t" +
                     $"{tfdText}\t" +
                     $"{data.fixationCount}\t" +
-                    $"{(isCurrentTarget ? "1" : "0")}"
+                    $"{(isCurrentAOI ? "1" : "0")}"
                 );
             }
             else
             {
                 sb.AppendLine(
-                    $"{target.name}\t" +
+                    $"{aoi.AoiLabel}\t" +
+                    $"{aoi.AoiId}\t" +
                     $"{data.fixationsBefore}\t" +
                     $"{tffText}\t" +
                     $"{fdText}\t" +
                     $"{tfdText}\t" +
                     $"{data.fixationCount}\t" +
-                    $"{(isCurrentTarget ? "1" : "0")}"
+                    $"{(isCurrentAOI ? "1" : "0")}"
                 );
             }
         }
 
-        private BasicMetricsData GetOrCreateMetrics(GameObject target)
+        private BasicMetricsData GetOrCreateMetrics(EyeGazeAOI aoi)
         {
-            if (!metricsByObject.ContainsKey(target))
+            if (!metricsByAOI.ContainsKey(aoi))
             {
-                metricsByObject[target] = new BasicMetricsData();
+                metricsByAOI[aoi] = new BasicMetricsData();
             }
 
-            return metricsByObject[target];
+            return metricsByAOI[aoi];
+        }
+
+        private EyeGazeAOI ResolveValidMetricsAOI(GameObject target)
+        {
+            if (target == null)
+            {
+                return null;
+            }
+
+            if (requireMetricsLayerMask && !IsMetricsLayer(target))
+            {
+                return null;
+            }
+
+            EyeGazeAOI aoi = searchAOIInParents
+                ? target.GetComponentInParent<EyeGazeAOI>()
+                : target.GetComponent<EyeGazeAOI>();
+
+            if (requireAOIComponent && aoi == null)
+            {
+                return null;
+            }
+
+            if (aoi != null && !aoi.IncludeInMetrics)
+            {
+                return null;
+            }
+
+            return aoi;
         }
 
         private bool IsMetricsLayer(GameObject target)
