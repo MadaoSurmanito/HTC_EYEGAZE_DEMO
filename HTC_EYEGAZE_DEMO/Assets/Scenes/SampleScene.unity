@@ -397,6 +397,68 @@ Transform:
   - {fileID: 1361213317}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &720658559
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.51542
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.57424
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 7.79851
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 102266837180802620, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 683124118249235469, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+      propertyPath: m_Name
+      value: GazeOffsetLine
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+--- !u!120 &720658560 stripped
+LineRenderer:
+  m_CorrespondingSourceObject: {fileID: 6367196964536011757, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+  m_PrefabInstance: {fileID: 720658559}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &737441211
 GameObject:
   m_ObjectHideFlags: 0
@@ -674,6 +736,68 @@ Transform:
   - {fileID: 1254293972}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &986219085
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.51542
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.57424
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 7.79851
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4993687149572280764, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5926663892205946593, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+      propertyPath: m_Name
+      value: GazeDebugLine
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+--- !u!120 &986219086 stripped
+LineRenderer:
+  m_CorrespondingSourceObject: {fileID: 1318287637389088249, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+  m_PrefabInstance: {fileID: 986219085}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1015190099
 GameObject:
   m_ObjectHideFlags: 0
@@ -704,11 +828,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EyeGaze.Runtime.Modules.EyeGazeDebugVisualizer
   enableDebugRay: 1
-  debugLineRenderer: {fileID: 1318287637389088249, guid: df37fb3a53183b74abe4cd3cae87500f, type: 3}
+  debugLineRenderer: {fileID: 986219086}
   debugRayColor: {r: 1, g: 0, b: 0, a: 1}
   debugCameraLineRenderer: {fileID: 0}
   debugCameraRayColor: {r: 0, g: 0, b: 1, a: 1}
-  debugOffsetLineRenderer: {fileID: 6367196964536011757, guid: d3c427b138e12ec4eab39313f559f512, type: 3}
+  debugOffsetLineRenderer: {fileID: 720658560}
   debugOffsetLineColor: {r: 1, g: 1, b: 1, a: 1}
   enableDebugLogs: 0
   debugLogEveryNFrames: 60
@@ -2034,6 +2158,8 @@ MonoBehaviour:
   logPeriodicSummary: 0
   summaryLogEveryNFrames: 300
   exportOnApplicationQuit: 1
+  exportToTxt: 1
+  exportToCsv: 1
   useCustomOutputDirectory: 1
   customOutputDirectory: C:\Users\MADAO\Desktop\Practicas\results\BasicMetrics
   outputFileName: eye_gaze_basic_metrics
@@ -2063,3 +2189,5 @@ SceneRoots:
   - {fileID: 632390616}
   - {fileID: 1803165286}
   - {fileID: 950477611}
+  - {fileID: 986219085}
+  - {fileID: 720658559}

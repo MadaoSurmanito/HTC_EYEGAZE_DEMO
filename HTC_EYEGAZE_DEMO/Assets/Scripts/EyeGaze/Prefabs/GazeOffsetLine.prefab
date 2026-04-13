@@ -82,8 +82,8 @@ LineRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Positions:
-  - {x: 0, y: 0, z: 0}
-  - {x: 0, y: 0, z: 1}
+  - {x: -0.037869945, y: 1.2203507, z: 0.086206764}
+  - {x: -0.03589415, y: 1.2170721, z: 0.08308169}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 0.005
