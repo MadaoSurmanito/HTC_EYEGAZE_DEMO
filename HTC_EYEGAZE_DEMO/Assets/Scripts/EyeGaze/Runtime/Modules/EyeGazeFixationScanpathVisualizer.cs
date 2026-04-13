@@ -26,9 +26,9 @@ namespace EyeGaze.Runtime.Modules
         [SerializeField] private float maxRenderedDistance = 3.0f;
 
         [Header("Scale")]
-        [SerializeField] private float baseNodeScale = 0.12f;
-        [SerializeField] private float scaleIncreasePerFixation = 0.03f;
-        [SerializeField] private float maxNodeScale = 0.25f;
+        [SerializeField] private float baseNodeScale = 0.01f;
+        [SerializeField] private float scaleIncreasePerFixation = 0.003f;
+        [SerializeField] private float maxNodeScale = 0.03f;
 
         [Header("Line")]
         [SerializeField] private bool drawScanpathLine = true;
