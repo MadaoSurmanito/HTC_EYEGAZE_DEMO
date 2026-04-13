@@ -12,6 +12,10 @@ namespace EyeGaze.Editor
             serializedObject.Update();
 
             SerializedProperty fixationThresholdProp = serializedObject.FindProperty("fixationThreshold");
+
+            SerializedProperty emitRepeatedVisualFixationsProp = serializedObject.FindProperty("emitRepeatedVisualFixations");
+            SerializedProperty repeatedVisualFixationIntervalProp = serializedObject.FindProperty("repeatedVisualFixationInterval");
+
             SerializedProperty metricsMaskProp = serializedObject.FindProperty("metricsMask");
 
             SerializedProperty logFixationStartsProp = serializedObject.FindProperty("logFixationStarts");
@@ -27,6 +31,16 @@ namespace EyeGaze.Editor
 
             EditorGUILayout.LabelField("Fixation", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(fixationThresholdProp);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Visual Fixation Emission", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(emitRepeatedVisualFixationsProp);
+            if (emitRepeatedVisualFixationsProp.boolValue)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(repeatedVisualFixationIntervalProp);
+                EditorGUI.indentLevel--;
+            }
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Metrics Layer Filter", EditorStyles.boldLabel);

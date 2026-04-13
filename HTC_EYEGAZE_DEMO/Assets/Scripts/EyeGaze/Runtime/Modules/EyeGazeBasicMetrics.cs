@@ -21,6 +21,14 @@ namespace EyeGaze.Runtime.Modules
         // Minimum continuous gaze time required to consider that a fixation has started
         [SerializeField] private float fixationThreshold = 0.25f;
 
+        [Header("Visual Fixation Emission")]
+        // If enabled, a visual fixation event will be emitted periodically while the gaze remains stable,
+        // even if the user keeps looking at the same object or empty space.
+        [SerializeField] private bool emitRepeatedVisualFixations = true;
+
+        // Time interval between emitted visual fixation events while staying in the same visual segment
+        [SerializeField] private float repeatedVisualFixationInterval = 0.25f;
+
         [Header("Metrics Layer Filter")]
         // Only objects in these layers will be used for AOI metrics
         [SerializeField] private LayerMask metricsMask = ~0;
@@ -72,6 +80,9 @@ namespace EyeGaze.Runtime.Modules
 
         // Whether the current gaze segment has already become a valid fixation
         private bool currentSegmentHasBecomeFixation;
+
+        // Timer used to emit repeated visual fixation events while staying in the same segment
+        private float timeSinceLastRepeatedVisualFixation;
 
         // Total number of fixations started globally in the current session
         private int totalFixationsStarted;
@@ -180,6 +191,7 @@ namespace EyeGaze.Runtime.Modules
             currentVisualIsFallback = false;
             currentTargetContinuousTime = 0f;
             currentSegmentHasBecomeFixation = false;
+            timeSinceLastRepeatedVisualFixation = 0f;
             totalFixationsStarted = 0;
             sessionStartTime = Time.time;
             currentVisualHitPoint = Vector3.zero;
@@ -214,6 +226,7 @@ namespace EyeGaze.Runtime.Modules
             }
 
             AccumulateFixationDuration(deltaTime);
+            TryEmitRepeatedVisualFixation(deltaTime);
             TryWritePeriodicSummary();
         }
 
@@ -225,6 +238,7 @@ namespace EyeGaze.Runtime.Modules
             currentVisualIsFallback = false;
             currentTargetContinuousTime = 0f;
             currentSegmentHasBecomeFixation = false;
+            timeSinceLastRepeatedVisualFixation = 0f;
             currentVisualHitPoint = Vector3.zero;
             currentVisualHitNormal = Vector3.forward;
         }
@@ -304,6 +318,8 @@ namespace EyeGaze.Runtime.Modules
                 sb.AppendLine("Eye Gaze Basic Metrics Report");
                 sb.AppendLine($"ExportedAt={DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}");
                 sb.AppendLine($"FixationThresholdSeconds={fixationThreshold.ToString("F6", CultureInfo.InvariantCulture)}");
+                sb.AppendLine($"RepeatedVisualFixationIntervalSeconds={repeatedVisualFixationInterval.ToString("F6", CultureInfo.InvariantCulture)}");
+                sb.AppendLine($"EmitRepeatedVisualFixations={(emitRepeatedVisualFixations ? "1" : "0")}");
                 sb.AppendLine($"SessionElapsedSeconds={(Time.time - sessionStartTime).ToString("F6", CultureInfo.InvariantCulture)}");
                 sb.AppendLine($"CurrentMetricsTarget={(currentMetricsTarget != null ? currentMetricsTarget.name : "<none>")}");
                 sb.AppendLine($"CurrentVisualTarget={(currentVisualTarget != null ? currentVisualTarget.name : "<none>")}");
@@ -371,6 +387,7 @@ namespace EyeGaze.Runtime.Modules
             currentVisualIsFallback = isFallbackFixation;
             currentTargetContinuousTime = 0f;
             currentSegmentHasBecomeFixation = false;
+            timeSinceLastRepeatedVisualFixation = 0f;
             currentVisualHitPoint = visualPoint;
             currentVisualHitNormal = visualNormal.sqrMagnitude > 0f ? visualNormal.normalized : Vector3.forward;
 
@@ -388,7 +405,69 @@ namespace EyeGaze.Runtime.Modules
             if (currentTargetContinuousTime >= fixationThreshold)
             {
                 StartFixation(currentMetricsTarget);
+                timeSinceLastRepeatedVisualFixation = 0f;
             }
+        }
+
+        private void TryEmitRepeatedVisualFixation(float deltaTime)
+        {
+            if (!emitRepeatedVisualFixations)
+            {
+                return;
+            }
+
+            if (!currentSegmentHasBecomeFixation)
+            {
+                return;
+            }
+
+            if (repeatedVisualFixationInterval <= 0f)
+            {
+                return;
+            }
+
+            timeSinceLastRepeatedVisualFixation += deltaTime;
+
+            if (timeSinceLastRepeatedVisualFixation < repeatedVisualFixationInterval)
+            {
+                return;
+            }
+
+            while (timeSinceLastRepeatedVisualFixation >= repeatedVisualFixationInterval)
+            {
+                timeSinceLastRepeatedVisualFixation -= repeatedVisualFixationInterval;
+                EmitVisualFixationEventOnly();
+            }
+        }
+
+        private void EmitVisualFixationEventOnly()
+        {
+            Debug.Log(
+                $"[GAZE BASIC METRICS] EVENT RepeatedVisualFixation -> " +
+                $"Target='{(currentMetricsTarget != null ? currentMetricsTarget.name : "<none>")}' | " +
+                $"Point={currentVisualHitPoint} | " +
+                $"GlobalFixationIndex={totalFixationsStarted} | " +
+                $"Fallback={currentVisualIsFallback}"
+            );
+
+            BasicMetricsData data = null;
+
+            if (currentMetricsTarget != null)
+            {
+                data = GetOrCreateMetrics(currentMetricsTarget);
+            }
+
+            FixationStarted?.Invoke(new FixationStartedEventData
+            {
+                target = currentMetricsTarget,
+                worldPoint = currentVisualHitPoint,
+                surfaceNormal = currentVisualHitNormal,
+                fixationStartTime = Time.time,
+                sessionElapsedTime = Time.time - sessionStartTime,
+                objectFixationCount = data != null ? data.fixationCount : 0,
+                globalFixationIndex = totalFixationsStarted,
+                isFallbackFixation = currentVisualIsFallback
+            });
         }
 
         private void AccumulateFixationDuration(float deltaTime)

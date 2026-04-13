@@ -29,6 +29,7 @@ namespace EyeGaze.Editor
             SerializedProperty useWorldSpaceLineProp = serializedObject.FindProperty("useWorldSpaceLine");
 
             SerializedProperty clearVisualsOnResetProp = serializedObject.FindProperty("clearVisualsOnReset");
+            SerializedProperty maxVisibleNodesProp = serializedObject.FindProperty("maxVisibleNodes");
 
             EditorGUILayout.LabelField("Dependencies", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(basicMetricsProp);
@@ -64,6 +65,7 @@ namespace EyeGaze.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Lifecycle", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(clearVisualsOnResetProp);
+            EditorGUILayout.PropertyField(maxVisibleNodesProp);
 
             serializedObject.ApplyModifiedProperties();
         }

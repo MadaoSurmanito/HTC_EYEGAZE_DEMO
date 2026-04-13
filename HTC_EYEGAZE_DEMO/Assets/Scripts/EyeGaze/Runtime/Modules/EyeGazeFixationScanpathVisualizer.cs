@@ -19,6 +19,12 @@ namespace EyeGaze.Runtime.Modules
         [SerializeField] private float surfaceOffset = 0.01f;
         [SerializeField] private float mergeDistance = 0.08f;
 
+        [Header("Distance Clamp")]
+        // Maximum visual distance from camera for rendered fixation nodes.
+        // Detection still works beyond this distance; only the rendered node position is clamped.
+        [SerializeField] private bool clampRenderedDistance = true;
+        [SerializeField] private float maxRenderedDistance = 3.0f;
+
         [Header("Scale")]
         [SerializeField] private float baseNodeScale = 0.12f;
         [SerializeField] private float scaleIncreasePerFixation = 0.03f;
@@ -32,6 +38,10 @@ namespace EyeGaze.Runtime.Modules
 
         [Header("Lifecycle")]
         [SerializeField] private bool clearVisualsOnReset = false;
+
+        // Maximum number of fixation nodes kept in scene.
+        // When exceeded, the oldest nodes are removed first.
+        [SerializeField] private int maxVisibleNodes = 10;
 
         [Serializable]
         private class FixationNodeData
@@ -115,24 +125,62 @@ namespace EyeGaze.Runtime.Modules
                 $"Fallback={fixationData.isFallbackFixation}"
             );
 
+            Vector3 clampedWorldPoint = GetRenderedWorldPoint(fixationData.worldPoint);
+
             FixationNodeData mergedNode = FindMergeCandidate(
                 fixationData.target,
-                fixationData.worldPoint
+                clampedWorldPoint,
+                fixationData.isFallbackFixation
             );
 
             if (mergedNode != null)
             {
-                MergeIntoExistingNode(mergedNode, fixationData);
+                MergeIntoExistingNode(
+                    mergedNode,
+                    clampedWorldPoint,
+                    fixationData.surfaceNormal
+                );
             }
             else
             {
-                CreateNewNode(fixationData);
+                CreateNewNode(fixationData, clampedWorldPoint);
             }
 
+            EnforceMaxVisibleNodes();
             UpdateLineRenderer();
         }
 
-        private FixationNodeData FindMergeCandidate(GameObject targetObject, Vector3 worldPoint)
+        private Vector3 GetRenderedWorldPoint(Vector3 sourceWorldPoint)
+        {
+            if (!clampRenderedDistance)
+            {
+                return sourceWorldPoint;
+            }
+
+            if (system == null || system.ReferenceCamera == null)
+            {
+                return sourceWorldPoint;
+            }
+
+            Transform cameraTransform = system.ReferenceCamera.transform;
+            Vector3 origin = cameraTransform.position;
+            Vector3 direction = sourceWorldPoint - origin;
+
+            float distance = direction.magnitude;
+
+            if (distance <= maxRenderedDistance || distance <= Mathf.Epsilon)
+            {
+                return sourceWorldPoint;
+            }
+
+            return origin + (direction.normalized * maxRenderedDistance);
+        }
+
+        private FixationNodeData FindMergeCandidate(
+            GameObject targetObject,
+            Vector3 worldPoint,
+            bool isFallbackFixation
+        )
         {
             FixationNodeData bestCandidate = null;
             float bestDistance = float.MaxValue;
@@ -140,6 +188,11 @@ namespace EyeGaze.Runtime.Modules
             foreach (FixationNodeData node in nodes)
             {
                 if (node == null)
+                {
+                    continue;
+                }
+
+                if (node.isFallbackNode != isFallbackFixation)
                 {
                     continue;
                 }
@@ -167,29 +220,33 @@ namespace EyeGaze.Runtime.Modules
 
         private void MergeIntoExistingNode(
             FixationNodeData node,
-            EyeGazeBasicMetrics.FixationStartedEventData fixationData
+            Vector3 worldPoint,
+            Vector3 surfaceNormal
         )
         {
             node.mergedFixationCount++;
-            node.worldPosition = Vector3.Lerp(node.worldPosition, fixationData.worldPoint, 0.35f);
+            node.worldPosition = Vector3.Lerp(node.worldPosition, worldPoint, 0.35f);
 
-            if (fixationData.surfaceNormal.sqrMagnitude > 0f)
+            if (surfaceNormal.sqrMagnitude > 0f)
             {
-                node.surfaceNormal = fixationData.surfaceNormal.normalized;
+                node.surfaceNormal = surfaceNormal.normalized;
             }
 
             UpdateNodeTransform(node);
             UpdateNodeScale(node);
         }
 
-        private void CreateNewNode(EyeGazeBasicMetrics.FixationStartedEventData fixationData)
+        private void CreateNewNode(
+            EyeGazeBasicMetrics.FixationStartedEventData fixationData,
+            Vector3 clampedWorldPoint
+        )
         {
             GameObject nodeObject = CreateNodeVisualObject();
 
             FixationNodeData node = new FixationNodeData
             {
                 targetObject = fixationData.target,
-                worldPosition = fixationData.worldPoint,
+                worldPosition = clampedWorldPoint,
                 surfaceNormal = fixationData.surfaceNormal.sqrMagnitude > 0f
                     ? fixationData.surfaceNormal.normalized
                     : Vector3.forward,
@@ -203,6 +260,36 @@ namespace EyeGaze.Runtime.Modules
 
             UpdateNodeTransform(node);
             UpdateNodeScale(node);
+        }
+
+        private void EnforceMaxVisibleNodes()
+        {
+            if (maxVisibleNodes <= 0)
+            {
+                return;
+            }
+
+            while (nodes.Count > maxVisibleNodes)
+            {
+                RemoveOldestNode();
+            }
+        }
+
+        private void RemoveOldestNode()
+        {
+            if (nodes.Count == 0)
+            {
+                return;
+            }
+
+            FixationNodeData oldestNode = nodes[0];
+
+            if (oldestNode?.visualObject != null)
+            {
+                Destroy(oldestNode.visualObject);
+            }
+
+            nodes.RemoveAt(0);
         }
 
         private GameObject CreateNodeVisualObject()
