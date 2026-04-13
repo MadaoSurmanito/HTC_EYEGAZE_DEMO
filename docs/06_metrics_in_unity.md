@@ -15,14 +15,15 @@ The main modules involved are:
 
 ## AOIs (Areas of Interest)
 
-In the current implementation, each scene object with a collider can be treated as an Area of Interest.
+In the current implementation, each scene object with a collider can be physically detected by the gaze raycast, but only objects resolved as valid semantic AOIs should be counted in the analysis.
 
-However, two levels must be distinguished:
+The current semantic AOI mechanism is based on `EyeGazeAOI`.
 
-- **visual fixation continuity**, which depends on the current visual segment
-- **metric registration**, which depends on whether the hit object belongs to the configured metrics layer mask
+This allows the system to distinguish between:
 
-This allows the system to keep visual continuity even when a fixation is not counted as a valid AOI metric event.
+- physical hit detection
+- visual fixation continuity
+- semantic AOI registration for metrics
 
 ## Dwell-Based Processing
 
@@ -71,13 +72,54 @@ This is especially useful for scanpath visualization, because it allows the syst
 
 `EyeGazeBasicMetrics` computes:
 
-- **TFF**: time from session start until the first fixation on an object
-- **FC**: number of valid fixations detected on an object
-- **TFD**: total fixation duration accumulated on an object
-- **FD**: average fixation duration on an object
-- **FB**: number of fixations that occurred before the first fixation on that object
+- **TFF**: time from session start until the first fixation on an AOI
+- **FC**: number of valid fixations detected on an AOI
+- **TFD**: total fixation duration accumulated on an AOI
+- **FD**: average fixation duration on an AOI
+- **FB**: number of fixations that occurred before the first fixation on that AOI
 
-These values are registered only for objects included in the configured metrics mask.
+These values are registered only for valid AOIs after AOI resolution and filtering.
+
+## Export Formats
+
+The project currently supports two export formats for fixation-based metrics:
+
+### TXT
+
+TXT export is intended for debug-oriented reading and manual inspection.
+
+### CSV
+
+CSV export is intended for structured analysis and spreadsheet workflows.
+
+CSV is especially useful for:
+
+- Excel-based analysis
+- comparison between AOIs
+- filtering and sorting
+- later processing in Python or R
+
+The current implementation uses semicolon separators for spreadsheet compatibility in Spanish regional settings.
+
+## Internal Module Structure
+
+`EyeGazeBasicMetrics` has been refactored internally into multiple partial class files.
+
+This improves:
+
+- readability
+- maintainability
+- separation of concerns
+- future extensibility
+
+The internal split separates:
+
+- configuration and public entry points
+- runtime state
+- fixation logic
+- AOI resolution
+- export utilities
+- event/data types
 
 ## Visual Scanpath Representation
 
@@ -86,6 +128,7 @@ These values are registered only for objects included in the configured metrics 
 The current implementation supports:
 
 - node creation from fixation events
+- repeated visual fixation sampling
 - merging nearby nodes inside the same context
 - scaling nodes according to merged fixation count
 - optional scanpath line rendering
@@ -99,11 +142,12 @@ This turns fixation events into an interpretable visual scanpath.
 1. `EyeGazeSystem` reads the latest gaze pose.
 2. The system performs the raycast.
 3. The system computes the visual fixation point.
-4. `EyeGazeDwellTracker` updates dwell accumulators.
-5. `EyeGazeBasicMetrics` updates fixation state and metric values.
-6. `EyeGazeBasicMetrics` emits fixation events.
-7. `EyeGazeFixationScanpathVisualizer` receives those events and updates the scanpath visualization.
-8. Reports can be exported to TXT for later analysis.
+4. `EyeGazeBasicMetrics` resolves the valid semantic AOI.
+5. The module updates segment continuity and fixation state.
+6. The module accumulates fixation metrics.
+7. The module emits fixation events.
+8. `EyeGazeFixationScanpathVisualizer` receives those events and updates the scanpath visualization.
+9. Results can be exported to TXT or CSV for later analysis.
 
 ## Independence from Other Modules
 
@@ -116,8 +160,6 @@ Therefore:
 - scanpath visualization can be enabled or disabled independently
 - the same main system can support different experimental configurations
 
-## Exported Results
+```
 
-The implementation currently supports TXT export for metric-oriented modules.
-
-These outputs can be used for inspection, logging or later offline analysis.
+```

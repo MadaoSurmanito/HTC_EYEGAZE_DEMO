@@ -116,3 +116,4 @@ This separates:
 - Connection and streaming stability may affect tracking quality.
 - Proper calibration is required for reliable gaze data.
 - Each interactive object should provide a collider to be treated as an Area of Interest.
+- Fixation-based metrics can be exported in TXT and CSV formats for inspection and later analysis.

@@ -27,3 +27,9 @@ The goal of this folder is to document each module independently, including:
 - runtime behavior
 - integration with other modules
 - current limitations
+
+## Implementation Notes
+
+Some runtime modules are internally split into multiple source files using `partial class` in order to improve readability and maintainability without changing their external API.
+
+This is currently the case for `EyeGazeBasicMetrics`.

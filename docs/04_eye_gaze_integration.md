@@ -145,6 +145,14 @@ Computes fixation-based metrics such as FB, TFF, FD, TFD and FC.
 
 It also emits fixation events that can be consumed by other modules.
 
+Internally, this module is split into multiple partial class files in order to separate:
+
+- public entry points
+- runtime state
+- fixation logic
+- AOI resolution
+- export logic
+
 ### EyeGazeFixationScanpathVisualizer
 
 Creates visual fixation markers in the scene and optionally connects them with a scanpath line.

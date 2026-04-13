@@ -18,15 +18,26 @@ The module computes:
 
 ## Current AOI Model
 
-This module now supports semantic AOIs through `EyeGazeAOI`.
+This module supports semantic AOIs through `EyeGazeAOI`.
 
-The metrics module no longer needs to rely only on raw GameObjects. It can resolve and validate a semantic AOI component from the hit object.
+The metrics module does not rely only on raw hit objects. Instead, it can resolve and validate a semantic AOI component from the hit object or its parents.
 
 This allows the system to distinguish between:
 
 - raw physical hit object
 - semantic AOI used for analysis
 - optional XR interaction components
+
+## Main Responsibilities
+
+At runtime, the module is responsible for:
+
+- resolving the valid AOI used for metrics
+- tracking visual continuity across gaze segments
+- deciding when a fixation starts
+- accumulating fixation-based metric values
+- optionally emitting repeated visual fixation events
+- exporting aggregated results
 
 ## Inspector Parameters
 
@@ -46,6 +57,23 @@ This allows the system to distinguish between:
 - `requireAOIComponent`: if enabled, a valid `EyeGazeAOI` component is required
 - `searchAOIInParents`: if enabled, the module can resolve `EyeGazeAOI` in the object hierarchy
 
+### Debug
+
+- `logFixationStarts`: enables logging when a fixation starts
+- `logPeriodicSummary`: enables periodic summary logs
+- `summaryLogEveryNFrames`: number of frames between periodic summaries
+
+### Export
+
+- `exportOnApplicationQuit`: enables automatic export when the application closes
+- `exportToTxt`: enables TXT export
+- `exportToCsv`: enables CSV export
+- `useCustomOutputDirectory`: enables custom output directory usage
+- `customOutputDirectory`: output directory path when enabled
+- `outputFileName`: base output file name
+- `generateTimestampedFileName`: appends a timestamp to the file name
+- `includeInstanceId`: includes Unity instance IDs in the exported report
+
 ## Difference Between Threshold and Emission
 
 - `fixationThreshold` decides when a fixation becomes valid
@@ -59,7 +87,7 @@ The module distinguishes between:
 
 ### Raw visual target
 
-The raw GameObject currently used for visual continuity.
+The raw `GameObject` currently used for visual continuity.
 
 This target is useful to decide whether the current visual segment is still the same.
 
@@ -85,27 +113,98 @@ The module emits `FixationStarted` event data containing:
 
 This keeps compatibility with visualization modules while also exposing semantic AOI information.
 
-## Export
+## Export Formats
 
-The module supports TXT export of per-AOI metric values.
+The module supports two export formats:
 
-The export can include:
+### TXT
 
-- AOI label
-- AOI identifier
-- instance ID
-- FB
-- TFF
-- FD
-- TFD
-- FC
-- whether the AOI is the current one
+TXT export is intended mainly for human-readable inspection and debugging.
 
-## Notes
+It includes:
+
+- session metadata
+- current runtime state
+- a tabular section with one row per AOI
+
+### CSV
+
+CSV export is intended for structured analysis in tools such as:
+
+- Excel
+- Google Sheets
+- LibreOffice Calc
+- Python
+- R
+
+The CSV uses semicolon separators for better compatibility with spreadsheet environments that use Spanish locale settings.
+
+## Internal File Organization
+
+The module is internally split into multiple partial class files for maintainability.
+
+Recommended structure:
+
+```text
+Assets/Scripts/EyeGaze/Runtime/Modules/BasicMetrics/
+├── EyeGazeBasicMetrics.cs
+├── EyeGazeBasicMetrics.Types.cs
+├── EyeGazeBasicMetrics.State.cs
+├── EyeGazeBasicMetrics.Logic.cs
+├── EyeGazeBasicMetrics.AOI.cs
+└── EyeGazeBasicMetrics.Export.cs
+EyeGazeBasicMetrics.cs
+
+Contains:
+
+serialized configuration fields
+public lifecycle methods
+public metric query methods
+event declaration
+EyeGazeBasicMetrics.Types.cs
+
+Contains:
+
+BasicMetricsData
+FixationStartedEventData
+EyeGazeBasicMetrics.State.cs
+
+Contains:
+
+runtime state fields
+state initialization
+state clearing
+metric container creation
+EyeGazeBasicMetrics.Logic.cs
+
+Contains:
+
+segment tracking
+fixation start logic
+repeated visual fixation emission
+duration accumulation
+fixation finalization
+EyeGazeBasicMetrics.AOI.cs
+
+Contains:
+
+semantic AOI resolution
+layer-mask filtering helpers
+EyeGazeBasicMetrics.Export.cs
+
+Contains:
+
+debug summary output
+TXT export
+CSV export
+export row formatting
+CSV escaping utilities
+Notes
 
 At the current stage, this module still combines two roles:
 
-- computing fixation metrics
-- emitting visual fixation events for visualization modules
+computing fixation metrics
+emitting visual fixation events for visualization modules
 
 This is practical and works well, but in a future refactor these concerns could be split into separate event types.
+```
