@@ -21,23 +21,26 @@ The project has been refactored into a modular architecture in which a central s
 
 The system is organized around the following components:
 
-- **EyeGazeSystem**  
+- **EyeGazeSystem**
   Main orchestration module. Reads gaze input, validates tracking, performs raycasting and distributes frame data to the active modules.
 
-- **EyeGazeUtils**  
+- **EyeGazeUtils**
   Shared utility module containing reusable helper functions for file export, renderer validation and common support tasks.
 
-- **EyeGazeHighlighter**  
+- **EyeGazeHighlighter**
   Optional module that applies visual highlighting to the object currently hit by the gaze ray.
 
-- **EyeGazeDebugVisualizer**  
+- **EyeGazeDebugVisualizer**
   Optional module that visualizes gaze rays, camera direction and offset information for debugging and calibration purposes.
 
-- **EyeGazeDwellTracker**  
-  Optional module that measures dwell time and gaze entries for each object.
+- **EyeGazeDwellTracker**
+  Optional module that measures dwell time and gaze entries per object.
 
-- **EyeGazeBasicMetrics**  
-  Optional module that computes basic fixation-based metrics such as FB, TFF, FD, TFD and FC.
+- **EyeGazeBasicMetrics**
+  Optional module that computes fixation-based metrics such as FB, TFF, FD, TFD and FC, and emits fixation events for visualization.
+
+- **EyeGazeFixationScanpathVisualizer**
+  Optional module that creates visual fixation nodes and scanpath lines from fixation events.
 
 ## Design Goals
 
@@ -72,12 +75,22 @@ The system is organized around the following components:
 - `04_eye_gaze_integration.md`
 - `05_metrics_theory.md`
 - `06_metrics_in_unity.md`
+- `07_state_of_the_art.md`
+- `modules/00_modules_index.md`
+- `modules/01_eye_gaze_system.md`
+- `modules/02_eye_gaze_frame_data.md`
+- `modules/03_eye_gaze_utils.md`
+- `modules/04_eye_gaze_highlighter.md`
+- `modules/05_eye_gaze_debug_visualizer.md`
+- `modules/06_eye_gaze_dwell_tracker.md`
+- `modules/07_eye_gaze_basic_metrics.md`
+- `modules/08_eye_gaze_fixation_scanpath_visualizer.md`
 
 ## How to Run
 
 1. Clone the repository.
 
-```git clone https://github.com/MadaoSurmanito/HTC_EYEGAZE_DEMO.git```
+`git clone https://github.com/MadaoSurmanito/HTC_EYEGAZE_DEMO.git`
 
 2. Open the project in Unity Hub.
 3. Open the main demo scene.
@@ -89,6 +102,7 @@ The system is organized around the following components:
 5. Press Play in Unity or build the project to run it in VR.
 
 ## Notes
+
 - Connection and streaming stability may affect tracking quality.
 - Proper calibration is required for reliable gaze data.
 - Each interactive object should provide a collider to be treated as an Area of Interest.

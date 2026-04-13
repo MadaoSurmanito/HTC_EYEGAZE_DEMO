@@ -1,43 +1,71 @@
 # Metrics Implementation in Unity
 
-## AOI (Areas of Interest)
+## Overview
 
-Each scene object with a collider can be treated as an Area of Interest.
+The project implements gaze-related measurements through independent runtime modules connected to the main gaze system.
 
-The gaze ray produced by the main system is used to determine whether the user is currently looking at an AOI.
+This avoids embedding all metric logic directly into the raycasting code and makes the architecture easier to maintain and extend.
 
-## Base Architecture
+The main modules involved are:
 
-The metrics are not computed directly inside the raycasting logic. Instead, they are implemented as independent modules connected to the main gaze system.
+- `EyeGazeSystem`
+- `EyeGazeDwellTracker`
+- `EyeGazeBasicMetrics`
+- `EyeGazeFixationScanpathVisualizer`
 
-The base architecture is composed of:
+## AOIs (Areas of Interest)
 
-- `EyeGazeSystem` for input reading and raycasting
-- `EyeGazeDwellTracker` for dwell-based accumulation
-- `EyeGazeBasicMetrics` for fixation-based metrics
+In the current implementation, each scene object with a collider can be treated as an Area of Interest.
 
-This separation keeps the metric logic independent from visualization or debugging features.
+However, two levels must be distinguished:
+
+- **visual fixation continuity**, which depends on the current visual segment
+- **metric registration**, which depends on whether the hit object belongs to the configured metrics layer mask
+
+This allows the system to keep visual continuity even when a fixation is not counted as a valid AOI metric event.
 
 ## Dwell-Based Processing
 
-`EyeGazeDwellTracker` maintains:
+`EyeGazeDwellTracker` measures gaze exposure over time.
 
-- Current target
-- Continuous dwell time on the current target
-- Total dwell time per object
-- Number of gaze entries per object
+It maintains:
 
-This module is useful for simple gaze exposure analysis and for exporting raw dwell summaries.
+- current target
+- continuous dwell time on the current target
+- total dwell time per object
+- number of gaze entries per object
+
+This module is useful for simple exposure analysis and for exporting raw dwell summaries.
 
 ## Fixation Definition
 
-In the Unity implementation, a fixation is defined as a continuous gaze maintained on the same object for at least a configurable threshold time.
+In the Unity implementation, a fixation starts when the gaze remains continuously on the same visual segment for at least a configurable threshold time.
 
-A common threshold example is:
+This threshold is controlled by:
 
-- 150 ms
+- `fixationThreshold`
 
-Once this threshold is reached, the current gaze segment is considered a valid fixation.
+A common example value is:
+
+- `0.25 s`
+
+Once this threshold is reached, the current gaze segment becomes a valid fixation.
+
+## Visual Fixation Emission
+
+The current implementation also supports repeated visual fixation emission while the user continues looking at the same visual segment.
+
+This behavior is controlled by:
+
+- `emitRepeatedVisualFixations`
+- `repeatedVisualFixationInterval`
+
+This is different from the fixation threshold:
+
+- `fixationThreshold` decides when a fixation starts
+- `repeatedVisualFixationInterval` decides how often additional visual fixation events are emitted while the fixation continues
+
+This is especially useful for scanpath visualization, because it allows the system to generate fixation markers even when the user keeps looking at the same object or empty space.
 
 ## Fixation-Based Metrics
 
@@ -49,16 +77,33 @@ Once this threshold is reached, the current gaze segment is considered a valid f
 - **FD**: average fixation duration on an object
 - **FB**: number of fixations that occurred before the first fixation on that object
 
-## Processing Logic
+These values are registered only for objects included in the configured metrics mask.
 
-The general processing flow is:
+## Visual Scanpath Representation
 
-1. `EyeGazeSystem` reads the latest gaze pose
-2. The system performs a raycast
-3. The hit object is propagated to the metrics modules
-4. `EyeGazeDwellTracker` updates dwell accumulators
-5. `EyeGazeBasicMetrics` updates fixation state and metric values
-6. Reports can be exported to TXT for later analysis
+`EyeGazeFixationScanpathVisualizer` listens to fixation events and creates visual nodes in the scene.
+
+The current implementation supports:
+
+- node creation from fixation events
+- merging nearby nodes inside the same context
+- scaling nodes according to merged fixation count
+- optional scanpath line rendering
+- limiting the number of visible nodes
+- removing the oldest nodes when the limit is exceeded
+
+This turns fixation events into an interpretable visual scanpath.
+
+## Processing Flow
+
+1. `EyeGazeSystem` reads the latest gaze pose.
+2. The system performs the raycast.
+3. The system computes the visual fixation point.
+4. `EyeGazeDwellTracker` updates dwell accumulators.
+5. `EyeGazeBasicMetrics` updates fixation state and metric values.
+6. `EyeGazeBasicMetrics` emits fixation events.
+7. `EyeGazeFixationScanpathVisualizer` receives those events and updates the scanpath visualization.
+8. Reports can be exported to TXT for later analysis.
 
 ## Independence from Other Modules
 
@@ -66,10 +111,13 @@ The metric modules do not depend on highlighting or debug visualization.
 
 Therefore:
 
-- Metrics can be collected without visual feedback
-- Debug rays can be enabled or disabled without changing metric computation
-- The same main system can support different experimental configurations
+- metrics can be collected without visual feedback
+- debug rays can be enabled or disabled without changing metric computation
+- scanpath visualization can be enabled or disabled independently
+- the same main system can support different experimental configurations
 
 ## Exported Results
 
-The implementation supports exporting TXT reports containing per-object values, which can later be used for inspection, analysis or experimental logging.
+The implementation currently supports TXT export for metric-oriented modules.
+
+These outputs can be used for inspection, logging or later offline analysis.
